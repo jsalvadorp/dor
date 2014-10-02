@@ -1,0 +1,4 @@
+# error: operador colgando al final de la linea
+
+a b c +
+d e f

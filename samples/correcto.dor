@@ -1,0 +1,17 @@
+import std
+
+infixr (::) 95
+
+type List a = Nil | a :: List a
+
+foldl f v l =
+  match l
+    Nil     => v
+    x :: xs => (f x (foldl f v xs))
+
+main () = do
+  printInt (foldl (+) 0 (1::2::3::Nil))
+  println ""
+  
+  var arr = Vector 12 0
+  println oo.arr@5.i

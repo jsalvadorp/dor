@@ -1,0 +1,5 @@
+# error: indentacion inconsistente (dedenta a un nivel invalido)
+
+a b c
+      d e f
+    x
