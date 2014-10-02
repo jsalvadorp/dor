@@ -7,6 +7,7 @@ Compilacion
     make
 
 Ejecucion
+
     ./bin/dorc <samples/correcto.dor
 
 La salida es un "dump" del arbol sintactico generado.
