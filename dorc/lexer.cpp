@@ -1,6 +1,6 @@
-#line 2 "lexer.cpp"
+#line 2 "dorc/lexer.cpp"
 
-#line 4 "lexer.cpp"
+#line 4 "dorc/lexer.cpp"
 
 #define  YY_INT_ALIGNED short int
 
@@ -535,8 +535,8 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#line 1 "lexer.l"
-#line 5 "lexer.l"
+#line 1 "dorc/lexer.l"
+#line 5 "dorc/lexer.l"
 
 #include <iostream>
 #include <stack>
@@ -586,7 +586,7 @@ int isdelim(int c) {
 } */
 
 /* http://www.kylheku.com/cgit/txr/tree/parser.l  [-!#$%&*+./<=>?@\^|~] */
-#line 590 "lexer.cpp"
+#line 590 "dorc/lexer.cpp"
 
 #define INITIAL 0
 
@@ -795,9 +795,9 @@ YY_DECL
 		}
 
 	{
-#line 64 "lexer.l"
+#line 64 "dorc/lexer.l"
 
-#line 801 "lexer.cpp"
+#line 801 "dorc/lexer.cpp"
 
 	while ( 1 )		/* loops until end-of-file is reached */
 		{
@@ -867,134 +867,134 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 65 "lexer.l"
+#line 65 "dorc/lexer.l"
 {} /*ignore escaped newline*/ 
 	YY_BREAK
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-#line 66 "lexer.l"
+#line 66 "dorc/lexer.l"
 {return NL;} /* also eof?  */
 	YY_BREAK
 case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
-#line 67 "lexer.l"
+#line 67 "dorc/lexer.l"
 {return NL;}
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 68 "lexer.l"
+#line 68 "dorc/lexer.l"
 {}
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 69 "lexer.l"
+#line 69 "dorc/lexer.l"
 {return TAB;}
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 70 "lexer.l"
+#line 70 "dorc/lexer.l"
 {return SPACE;}
 	YY_BREAK
 case 7:
 /* rule 7 can match eol */
 YY_RULE_SETUP
-#line 71 "lexer.l"
+#line 71 "dorc/lexer.l"
 {return TSTRING;}
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 72 "lexer.l"
+#line 72 "dorc/lexer.l"
 {return TCHAR;}
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 73 "lexer.l"
+#line 73 "dorc/lexer.l"
 {return TID;}
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 74 "lexer.l"
+#line 74 "dorc/lexer.l"
 {return TFLOAT;}
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 75 "lexer.l"
+#line 75 "dorc/lexer.l"
 {return TDINT;}
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 76 "lexer.l"
+#line 76 "dorc/lexer.l"
 {return TXINT;}
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 77 "lexer.l"
+#line 77 "dorc/lexer.l"
 {return TRINT;} 
 	YY_BREAK
 /*reemplazar la anterior por muchas reglas, una para cada
     base para asegurar que sea correcto el numero*/
 case 14:
 YY_RULE_SETUP
-#line 80 "lexer.l"
+#line 80 "dorc/lexer.l"
 {return TOP;}
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 81 "lexer.l"
+#line 81 "dorc/lexer.l"
 {return TOP;}
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 82 "lexer.l"
+#line 82 "dorc/lexer.l"
 {return TOP;}
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
-#line 83 "lexer.l"
+#line 83 "dorc/lexer.l"
 {return TEOF;}
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 84 "lexer.l"
+#line 84 "dorc/lexer.l"
 {return TBACKSLASH;}
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 85 "lexer.l"
+#line 85 "dorc/lexer.l"
 {return TLPAREN;}
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 86 "lexer.l"
+#line 86 "dorc/lexer.l"
 {return TRPAREN;}
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 87 "lexer.l"
+#line 87 "dorc/lexer.l"
 {return TLBRACKET;}
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 88 "lexer.l"
+#line 88 "dorc/lexer.l"
 {return TRBRACKET;}
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 89 "lexer.l"
+#line 89 "dorc/lexer.l"
 {return TLBRACE;}
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 90 "lexer.l"
+#line 90 "dorc/lexer.l"
 {return TRBRACE;}
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 92 "lexer.l"
+#line 92 "dorc/lexer.l"
 ECHO;
 	YY_BREAK
-#line 998 "lexer.cpp"
+#line 998 "dorc/lexer.cpp"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -1999,7 +1999,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 92 "lexer.l"
+#line 92 "dorc/lexer.l"
 
 
 
