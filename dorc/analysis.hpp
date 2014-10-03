@@ -4,17 +4,29 @@
 #include <vector>
 #include <initializer_list>
 #include "ast.hpp"
+#include "types.hpp"
 
 using ast::Ptr;
 using ast::Atom;
 
-typedef enum {
+enum scope_t {
     EXTERN,
     GLOBAL, 
     PARAMETER, 
     LOCAL, 
     CLOSURE
-} scope_t;
+};
+
+enum mutability_t {
+    CONST, // compile-time constant
+    FINAL, // immutable
+    VAR    // mutable
+};
+
+enum storage_t {
+    AUTO, // stack variables
+    STATIC // 
+};
 
 struct Type;
 struct Expression;
@@ -22,14 +34,15 @@ struct Expression;
 // DO NOT Ptr<Binding> !!!
 struct Binding {
     scope_t scope;
+    mutability_t mut;
+    storage_t storage;    
+    
     Ptr<Type> type;
     Sym name;
     Sym qualified_name;
     
     Ptr<Expression> value;
     Ptr<Binding> parent;
-    
-    bool variable; // handle mutability later
     
     Binding() {}
     Binding(const Binding &b)
@@ -38,16 +51,14 @@ struct Binding {
         , type(b.type)
         , name(b.name)
         , qualified_name(b.qualified_name)
-        , value(b.value)
-        , variable(b.variable) {}
+        , value(b.value) {}
     Binding(Binding &parent, scope_t scope) 
         : scope(scope)
         , parent(&parent)
         , type(parent.type)
         , name(parent.name)
         , qualified_name(parent.qualified_name)
-        , value(parent.value)
-        , variable(parent.variable) {}
+        , value(parent.value) {}
 };
 
 struct Env {
@@ -76,6 +87,14 @@ struct Function : Expression, Env {
     Ptr<Expression> body;
 };
 
+struct Literal : Expression {
+    Ptr<Atom> value;
+};
+
+struct Reference : Expression {
+    Binding *binding;
+};
+
 struct Application : Expression {
     Ptr<Expression> left, right;
 };
@@ -84,12 +103,20 @@ struct Conditional : Expression {
     Ptr<Expression> condition, on_false, on_true;
 };
 
-struct Literal : Expression {
-    Ptr<Atom> value;
+struct Sequence : Expression {
+    Ptr<Env> locals;
+    std::vector<Ptr<Expression> > steps;
 };
 
-struct Reference : Expression {
-    Binding *binding;
+struct MatchClause {
+    Ptr<Env> env;
+    Ptr<Expression> pattern, body;
 };
+
+struct Match : Expression {
+    std::vector<MatchClause> clauses;
+};
+
+
 
 // assignment

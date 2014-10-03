@@ -472,13 +472,6 @@ void initParser() {
 int main() {
     initLexer();
 	parser::initParser();
-    
-    /*
-    do {
-		tok = nextToken();
-		assert(tok.token != SPACE && tok.token != NL && tok.token != TAB);
-        std::cout << tok.line << " :- " << toknames[tok.token] << " :: "  << tok.lexeme << std::endl;
-    } while(tok.token != TEOF);/**/
 	
 	Ptr<List> program = asList(parser::parseGroup(true));
     

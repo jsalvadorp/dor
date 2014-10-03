@@ -104,8 +104,12 @@ struct List : Atom { // never-empty list
     
     struct List_iterator {
         
-        List_iterator &operator++() {el = el->tail.get();}
-        List_iterator &operator++(int x) {el = el->tail.get();}
+        List_iterator operator++() {el = el->tail.get(); return *this;} //pre
+        List_iterator operator++(int x) { // post increment
+            List_iterator it(*this);
+            el = el->tail.get();
+            return it;
+        } //post
         Ptr<Atom> operator*() {return el->head;}
         Ptr<Atom> operator->() {return el->head;}
         bool operator==(List_iterator rhs) {return el == rhs.el;}
@@ -154,7 +158,7 @@ inline Ptr<Atom> atom(ty t, int l, int c) {return newPtr<A##name>(t, l, c);}\
 inline Ptr<Atom> atom(ty t) {return newPtr<A##name>(t);}
 
 inline std::ostream &operator<<(std::ostream &out, Sym r) {
-    std::cout << r.str();
+    return std::cout << r.str();
 }
 
 ATOM_SPECIALIZE(I64, i64);
@@ -176,13 +180,6 @@ struct AVoid : Atom {
     AVoid(const AVoid &r) {}
 };
 
-// extern AVoid *voidv;
-
-
-/*
-void func() {
-    for(Atom *a : List()) {}
-}/**/
 
 
 template<typename T>

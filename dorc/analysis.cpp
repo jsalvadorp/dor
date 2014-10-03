@@ -79,8 +79,8 @@ void define(Ptr<Env> env, Ptr<List> body) {
     }
 }
 
-Ptr<Expression> expression(Ptr<Atom> a) {}
-Ptr<Expression> function(Ptr<List> args) {}
+Ptr<Expression> expression(Ptr<Atom> a) {return nullptr;}
+Ptr<Expression> function(Ptr<List> args) {return nullptr;}
 
 void defineType(Ptr<Env> env, Ptr<List> body) {}
 
