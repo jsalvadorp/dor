@@ -12,17 +12,36 @@ struct Kind {
     Ptr<Kind> from;
     Ptr<Kind> to;
     
-    static Ptr<Kind> k0();
+    //static Ptr<Kind> k0();
+    
+    template<int N>
+    static Ptr<Kind> k() {
+        static Ptr<Kind> kind = newPtr<Kind>(k<0>(), k<N - 1>());
+        return kind;
+    }
     
     Kind(Ptr<Kind> f, Ptr<Kind> t) : from(f), to(t) {}
 };
 
-#define STAR Kind::k0()
+template<>
+inline Ptr<Kind> Kind::k<0>() {
+    return nullptr;
+}
+
+
+
+#define K1 Kind::k<1>()
+#define K2 Kind::k<2>()
+#define K3 Kind::k<3>()
+#define K4 Kind::k<4>()
 
 struct Type {
     Ptr<Kind> kind;
+    Sym name;
     
-    Type() : kind(nullptr) {}
+    Type(Ptr<Kind> kind = nullptr) : kind(kind) {}
+    Type(Sym name, Ptr<Kind> kind = nullptr) : name(name), kind(kind) {}
+    Type(const char *s, Ptr<Kind> kind = nullptr) : name(Sym(s)), kind(kind) {}
 };
 
 struct TypeApp : Type {
@@ -32,7 +51,7 @@ struct TypeApp : Type {
     TypeApp(Ptr<Type> left, Ptr<Type> right);
 };
 
-
+extern Ptr<Type> Int, String, Char, Bool, Void, Float, FuncArrow;
 
 #if 0
 

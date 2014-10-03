@@ -17,16 +17,17 @@ enum scope_t {
     CLOSURE
 };
 
+
+// NOTE consider distinguishing between const and final
 enum mutability_t {
-    CONST, // compile-time constant
-    FINAL, // immutable
+    CONST, // constant. for extern & global, this means known at compile/link/load time.
     VAR    // mutable
 };
 
-enum storage_t {
+/*enum storage_t { // completely determined by scope!
     AUTO, // stack variables
     STATIC // 
-};
+};*/
 
 struct Type;
 struct Expression;
@@ -34,8 +35,7 @@ struct Expression;
 // DO NOT Ptr<Binding> !!!
 struct Binding {
     scope_t scope;
-    mutability_t mut;
-    storage_t storage;    
+    mutability_t mut;  
     
     Ptr<Type> type;
     Sym name;
@@ -43,6 +43,8 @@ struct Binding {
     
     Ptr<Expression> value;
     Ptr<Binding> parent;
+    
+    int id;
     
     Binding() {}
     Binding(const Binding &b)
@@ -89,14 +91,23 @@ struct Function : Expression, Env {
 
 struct Literal : Expression {
     Ptr<Atom> value;
+    
+    Literal(Ptr<Atom> value, Ptr<Type> type) : value(value) {
+        this->type = type;
+    }
 };
 
 struct Reference : Expression {
     Binding *binding;
+    
+    Reference(Binding *b) : binding(b) {}
 };
 
 struct Application : Expression {
     Ptr<Expression> left, right;
+    
+    Application(Ptr<Expression> left, Ptr<Expression> right)
+        : left(left), right(right) {}
 };
 
 struct Conditional : Expression {
