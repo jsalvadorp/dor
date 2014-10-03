@@ -28,7 +28,7 @@ Sym::Sym(const std::string &s) {
     }
 }
 
-const std::string &Sym::str() {
+const std::string &Sym::str() const {
     //return *sym2str[code];
     return sym2str[code];
 }

@@ -161,8 +161,8 @@ void initInfixOps() {
 
 Sym parseInfixOp();
 
-Atom *parseExpr() {
-    Atom *a = nullptr;
+Ptr<Atom> parseExpr() {
+    Ptr<Atom> a = nullptr;
     
     if(t.token == TID) {
         a = atom(Sym(t.lexeme), t.line, t.column);
@@ -189,7 +189,7 @@ Atom *parseExpr() {
     
     if(t.token == TLPAREN) {
         t = nextToken();
-        Atom *a;
+        Ptr<Atom> a;
         
         if(t.token == TOP) { // parenthesized op-expr (+)  (*)
             a = atom(parseInfixOp());
@@ -222,17 +222,17 @@ Sym parseInfixOp() {
 
 void helper(
     std::stack<Sym> &operators,
-    std::stack<Atom *> &operands,
+    std::stack<Ptr<Atom> > &operands,
     std::stack<Sym> &operand_heads,
-    std::stack<List *> &operand_dests);
+    std::stack<Ptr<List> > &operand_dests);
 
-Atom *parseLine() {
+Ptr<Atom> parseLine() {
     //std::cout << "LINE start " 
     //    << toknames[t.token]<< "="<<t.lexeme<< std::endl;
-    std::stack<Atom *> operands;
+    std::stack<Ptr<Atom> > operands;
     std::stack<Sym> operators;
     std::stack<Sym> operand_heads;
-    std::stack<List *> operand_dests;
+    std::stack<Ptr<List> > operand_dests;
     
     //a = parseExpr();
     operands.push(parseExpr());
@@ -287,13 +287,13 @@ Atom *parseLine() {
         helper(operators, operands, operand_heads, operand_dests);
     }
     
-    Atom *a = operands.top();
+    Ptr<Atom> a = operands.top();
     operands.pop();
     
     
     // checking infix definitions:
     if(a->type() == ListType) {
-        List *exp = (List *)a;
+        Ptr<List> exp = asList(a);
         if(exp->head->type() == SymType 
             && exp->head->get_Sym() == Sym("infixr")) {
             // found an infixr declaration. must be of the form
@@ -348,18 +348,18 @@ Atom *parseLine() {
 
 void helper(
     std::stack<Sym> &operators,
-    std::stack<Atom *> &operands,
+    std::stack<Ptr<Atom> > &operands,
     std::stack<Sym> &operand_heads,
-    std::stack<List *> &operand_dests) {
+    std::stack<Ptr<List> > &operand_dests) {
     
-    Atom *operand2 = operands.top(); 
+    Ptr<Atom> operand2 = operands.top(); 
     operands.pop();
     operand_heads.pop();
     operand_dests.pop();
     
-    Atom *operand1 = operands.top();
+    Ptr<Atom> operand1 = operands.top();
     Sym head = operand_heads.top();
-    List *dest = operand_dests.top();
+    Ptr<List> dest = operand_dests.top();
     operands.pop();
     operand_heads.pop();
     operand_dests.pop();
@@ -377,31 +377,22 @@ void helper(
         
         // variadic or neutral associative: append op2 after dest.
         if(assoc(operators.top()) == Neutral) {
-            dest = dest->tail = new List(operand2, nullptr);
+            dest = dest->tail = newPtr<List>(operand2, nullptr);
             operands.push(operand1); // now with op2 included!
             operand_dests.push(dest);
             operand_heads.push(operators.top());
         }
         
-        // right associ
+        // right associative
         else if(assoc(operators.top()) == Right) {
             Ptr<Atom> dest_head = dest->head;
-            List *new_dest;
-            //dest->head = nullptr;
-            /*dest->head = new List(
-                operators.top(),
-                new List(
-                    dest_head,
-                    (new_dest = new List(
-                        operand2, 
-                        nullptr))));
-            dest = new_dest;*/
+            Ptr<List> new_dest;
             
-            dest->head = new List(
+            dest->head = newPtr<List>(
                 operators.top(),
-                new List(
+                newPtr<List>(
                     dest->head,
-                    new_dest = new List(
+                    new_dest = newPtr<List>(
                         operand2, 
                         nullptr)));
             
@@ -413,14 +404,14 @@ void helper(
     
     // left associative or first application of operator
     else { 
-        List *tmp, *exp = new List(
+        Ptr<List> tmp, exp = newPtr<List>(
             operand1,
-            tmp = new List(
+            tmp = newPtr<List>(
                 operand2,
                 nullptr));
         
         if(operators.top() != GLUE)
-            exp = new List(operators.top(), exp); // add operator as head
+            exp = newPtr<List>(operators.top(), exp); // add operator as head
         
         dest = assoc(operators.top()) == Left ? nullptr : tmp;
         operands.push(exp);
@@ -431,30 +422,34 @@ void helper(
     operators.pop();
 }
 
-Atom *parseGroup(bool force_list) {
+Ptr<Atom> parseGroup(bool force_list) {
     //std::cout << "groupppp" << std::endl;
     if(IS_RGROUPER(t.token)) return nullptr;
     
-    Atom *ret = nullptr;
-    List **dest = force_list ? (List **)&ret : nullptr;
+    Ptr<Atom> ret = nullptr;
+    //Ptr<List> ret_list = nullptr;
+    Ptr<List> *dest = nullptr;//force_list ? &ret : nullptr;
     
     while(!IS_RGROUPER(t.token)) {
-        Atom *a = parseLine();
+        Ptr<Atom> a = parseLine();
         
         //std::cout << "ALINE" << std::endl;
         //a->dump(0);
         
         //assert(*dest == nullptr);
         
-        if(dest) {
+        if(dest != nullptr) {
             dest = append(dest, a);
-            
-            assert(ret != ((List *) ret)->head);
-        } else if(!ret) {
-            ret = a;
+        } else if(ret == nullptr) {
+            if(force_list) {
+                Ptr<List> ret_list = newPtr<List>(a, nullptr);
+                ret = ret_list;
+                dest = &ret_list->tail;
+            } else ret = a;
         } else {
-            ret = new List(ret, nullptr);
-            dest = &((List *)ret)->tail;
+            Ptr<List> ret_list = newPtr<List>(ret, nullptr);
+            ret = ret_list;
+            dest = &ret_list->tail;
             dest = append(dest, a);
         }
     }
@@ -485,7 +480,7 @@ int main() {
         std::cout << tok.line << " :- " << toknames[tok.token] << " :: "  << tok.lexeme << std::endl;
     } while(tok.token != TEOF);/**/
 	
-	ast::List *program = (List *)parser::parseGroup(true);
+	Ptr<List> program = asList(parser::parseGroup(true));
     
     program->dump(0);
     std::cout << endl;

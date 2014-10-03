@@ -6,10 +6,16 @@ struct Sym {
     
     Sym(int i) : code(i) {}
     Sym(const char *s = "");
-    Sym(const std::string& s);
-    const std::string &str();
+    Sym(const std::string &s);
+    const std::string &str() const;
     bool operator==(const Sym s) const {return code == s.code;}
     bool operator!=(const Sym s) const {return code != s.code;}
+    
+    
+    bool operator==(const std::string &s) const {return str() == s;}
+    bool operator!=(const std::string &s) const {return str() != s;}
+    bool operator==(const char *s) const {return str() == s;}
+    bool operator!=(const char *s) const {return str() != s;}
     
     bool valid() {return code >= 0;}
 };

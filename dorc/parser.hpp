@@ -7,7 +7,7 @@ using namespace ast;
 
 namespace parser {
 
-Atom *parseGroup(bool force_list = false);
-Atom *parseLine();
+Ptr<Atom> parseGroup(bool force_list = false);
+Ptr<Atom> parseLine();
 
 }

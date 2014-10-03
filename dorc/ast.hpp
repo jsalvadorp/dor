@@ -3,13 +3,20 @@
 #include <cstdint>
 #include <cassert>
 #include <iostream>
+#include <memory>
 
 #include "symbol.hpp"
 
 namespace ast {
 
 template <typename T>
-using Ptr = T*;
+using Ptr = std::shared_ptr<T>;//T*;
+
+template <typename T>
+using WeakPtr = std::weak_ptr<T>;//T*;
+
+#define newPtr std::make_shared
+//Ptr<T> newPtr(T *t) {return std::make_shared<T>(t);}
 
 using std::string;
 
@@ -40,7 +47,7 @@ inline void print_indent(int level) {
     while(level--) std::cout << "  ";
 }
 
-struct Atom {
+struct Atom : std::enable_shared_from_this<Atom> {
     int line;
     int column;
     Atom() : line(-1), column(-1) {}
@@ -60,7 +67,7 @@ struct Atom {
     
     // syms lists
     virtual Sym get_Sym() {assert(!"Not a symbol"); return Sym();}
-    virtual List *get_List() {assert(!"Not a list"); return nullptr;}
+    //virtual Ptr<List> get_List() {assert(!"Not a list"); return nullptr;}
 };
 
 struct List : Atom { // never-empty list
@@ -69,16 +76,16 @@ struct List : Atom { // never-empty list
     
     virtual Type type() {return ListType;}
     
-    virtual List *get_List() {
-        return this;
-    }
+    /*virtual Ptr<List> get_List() {
+        return shared_from_this();
+    }*/
     
     virtual ~List() {}
     
     virtual void dump(int level) {
         print_indent(level);
         std::cout << "(" << std::endl;
-        for(Atom *a : *this) {
+        for(Ptr<Atom> a : *this) {
             a->dump(level + 1);
             std::cout << std::endl;
         }
@@ -86,22 +93,26 @@ struct List : Atom { // never-empty list
         std::cout << ")";
     }
     
+    Ptr<List> copy() {
+        return newPtr<List>(head, tail ? tail->copy() : nullptr);
+    }
+    
     //List() : head(Atom::VoidValue), tail(nullptr) {}
-    List(Atom *head, List *list) : head(head), tail(list) {}
+    List(Ptr<Atom> head, Ptr<List> list) : head(head), tail(list) {}
     template<typename T>
-    List(T head, List *list); //: head(head), tail(list) {}
+    List(T head, Ptr<List> list); //: head(head), tail(list) {}
     
     struct List_iterator {
         
-        List_iterator &operator++() {el = el->tail;}
-        List_iterator &operator++(int x) {el = el->tail;}
-        Atom *operator*() {return el->head;}
-        Atom *operator->() {return el->head;}
+        List_iterator &operator++() {el = el->tail.get();}
+        List_iterator &operator++(int x) {el = el->tail.get();}
+        Ptr<Atom> operator*() {return el->head;}
+        Ptr<Atom> operator->() {return el->head;}
         bool operator==(List_iterator rhs) {return el == rhs.el;}
         bool operator!=(List_iterator rhs) {return el != rhs.el;}
         
         
-        Ptr<List> el;
+        List *el;
         
         List_iterator(List *rhs) {el = rhs;}
         List_iterator(const List_iterator &rhs) {el = rhs.el;}
@@ -114,13 +125,24 @@ struct List : Atom { // never-empty list
     iterator end() {return iterator(nullptr);}
 };
 
-List **append(List **l, Atom *a);
+Ptr<List> list(std::initializer_list<Ptr<Atom> > l);
+//Ptr<List> list(std::initializer_list<Ptr<Atom> > l);
+
+
+inline Ptr<Atom> atom(Ptr<List> &l) {return std::dynamic_pointer_cast<Atom, List>(l);}
+inline Ptr<List> asList(const Ptr<Atom> &r) {
+    assert(r->type() == ListType);
+    
+    return std::dynamic_pointer_cast<List, Atom>(r);
+}
+Ptr<List> *append(Ptr<List> *l, Ptr<Atom> a);
+Ptr<List> *appendList(Ptr<List> *l, Ptr<List> a);
 
 #define ATOM_SPECIALIZE(name, ty) \
 struct A##name : Atom { \
     ty value; \
-    A##name(ty t) : value(t) {} \
-    A##name(ty t, int l, int c) : value(t), Atom(l, c) {} \
+    A##name(const ty &t) : value(t) {} \
+    A##name(const ty &t, int l, int c) : value(t), Atom(l, c) {} \
     virtual Type type() {return name##Type;} \
     virtual ty get_##ty() { \
         return value; \
@@ -128,8 +150,8 @@ struct A##name : Atom { \
     virtual ~A##name() {} \
     virtual void dump(int level) { print_indent(level); std::cout << get_##ty();} \
 }; \
-inline Atom *atom(ty t, int l, int c) {return new A##name(t, l, c);}\
-inline Atom *atom(ty t) {return new A##name(t);}
+inline Ptr<Atom> atom(ty t, int l, int c) {return newPtr<A##name>(t, l, c);}\
+inline Ptr<Atom> atom(ty t) {return newPtr<A##name>(t);}
 
 inline std::ostream &operator<<(std::ostream &out, Sym r) {
     std::cout << r.str();
@@ -142,19 +164,19 @@ ATOM_SPECIALIZE(Char, uchar);
 ATOM_SPECIALIZE(Sym, Sym);
 ATOM_SPECIALIZE(String, string);
 
-inline Atom *atom(char c) {return atom((uchar)c);}
-inline Atom *atom(List *l) {return (Atom *)l;}
+
+inline Ptr<Atom> atom(char c) {return atom((uchar)c);}
 
 struct AVoid : Atom {
     virtual Type type() {return VoidType;}
     virtual ~AVoid() {}
     virtual void dump(int level) {print_indent(level); std::cout << "v()" << std::endl;}
-    static AVoid *value();
-    private:
+    static Ptr<AVoid> value();
     AVoid() {}
+    AVoid(const AVoid &r) {}
 };
 
-extern AVoid *voidv;
+// extern AVoid *voidv;
 
 
 /*
@@ -164,7 +186,7 @@ void func() {
 
 
 template<typename T>
-List::List(T head, List *list) : head(atom(head)), tail(list) {}
+List::List(T head, Ptr<List> list) : head(atom(head)), tail(list) {}
 
 }
 

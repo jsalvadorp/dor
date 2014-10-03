@@ -1,11 +1,13 @@
 #include <unordered_map>
 #include "analysis.hpp"
 
-virtual Binding *Env::find(Sym name) {
-    auto it = dict.find(name);
+using namespace ast;
+
+Binding *Env::find(Sym name) {
+    auto it = dictionary.find(name);
     Binding *b;
     
-    if(it != dict.end()) return &it->second;
+    if(it != dictionary.end()) return &it->second;
     else if(parent && (b = parent->find(name))) {
         return b;
     }
@@ -13,14 +15,26 @@ virtual Binding *Env::find(Sym name) {
     return nullptr;
 }
 
-virtual Binding *Proc::find(Sym name) {
-    auto it = dict.find(name);
+Binding *Globals::find(Sym name) {
+    auto it = dictionary.find(name);
     Binding *b;
     
-    if(it != dict.end()) return &it->second;
+    if(it != dictionary.end()) return &it->second;
+    /*else if(parent && (b = parent->find(name))) {
+        return b;
+    }*/ // handle externs!!!
+    
+    return nullptr;
+}
+
+Binding *Function::find(Sym name) {
+    auto it = dictionary.find(name);
+    Binding *b;
+    
+    if(it != dictionary.end()) return &it->second;
     else if(parent && (b = parent->find(name))) {
         if(b->scope == PARAMETER || b->scope == CLOSURE) {
-            dict[name] = Binding(*b, CLOSURE);
+            dictionary[name] = Binding(*b, CLOSURE);
         }
         
         return b;
@@ -29,30 +43,62 @@ virtual Binding *Proc::find(Sym name) {
     return nullptr;
 }
 
-#if 0
-binding_t * getb(env_t * env, Symbol name) {
-	hnode_Symbol_binding_t ** b = hmap_Symbol_binding_t_getptrptr(&(env->dict), name);
-	binding_t * pb;
-	
-	if(*b) return &((*b)->value);
-	else if (pb = getb(env->parent, name)) {
-		if(env->tag == ENV_PROC && pb->scope != GLOBAL) { // what if it's of scope recur??
-			fprintf(stderr, "closure");
-			proc_t * proc = (proc_t *) env;
-			binding_t newb;
-			
-			newb.type = pb->type;
-			newb.scope = CLOSURE;
-			newb.id = proc->closure.size;
-			array_binding_ptr_push(&proc->closure, pb);
-			newb.name = name;
-			newb.hasvalue = 0;
-			
-			*b = malloc(sizeof(hnode_Symbol_binding_t));
-			(*b)->key = name;
-			(*b)->value = newb;
-			(*b)->next = NULL;
-		} else return pb; // if not a proc or just a global value.
-	} else return NULL;
+#define headis(a, s, rest) \
+    ((a)->type() == ListType \
+        && asList(a)->head->type() == SymType \
+        && asList(a)->head->get_Sym() == s \
+        && (rest = asList(a)->tail))
+        
+
+void define(Ptr<Env> env, Ptr<List> body);
+void defineType(Ptr<Env> env, Ptr<List> body);
+void defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs);
+
+void topLevel(Ptr<Globals> globals, Ptr<Atom> exp) {
+    Ptr<List> rest;
+    if(headis(exp, "=", rest)) {
+        define(globals, rest);
+    }
 }
-#endif
+
+void define(Ptr<Env> env, Ptr<List> body) {
+    assert(body != nullptr);
+    Ptr<Atom> lhs = body->head;
+    body = body->tail;
+    
+    assert(body != nullptr);
+    Ptr<Atom> rhs = body->head;
+    assert(body->tail == nullptr);
+    
+    Ptr<List> head_rest;
+    
+    if(headis(lhs, "type", head_rest)) { // type definition
+        defineType(env, head_rest);
+    } else {
+        defineValue(env, lhs, rhs);
+    }
+}
+
+Ptr<Expression> expression(Ptr<Atom> a) {}
+Ptr<Expression> function(Ptr<List> args) {}
+
+void defineType(Ptr<Env> env, Ptr<List> body) {}
+
+void defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs) {
+    Sym name;
+    Ptr<List> params;
+    Ptr<List> *paramsDest;
+    
+    while(lhs->type() == ListType) {
+        Ptr<List> rest = asList(lhs)->tail->copy();
+        paramsDest = appendList(paramsDest, rest);
+        lhs = asList(lhs)->head;
+    }
+    
+    assert(lhs->type() == SymType);
+    name = lhs->get_Sym();
+    
+    Ptr<Expression> exp = 
+        params != nullptr ? function(list({params, rhs}))
+                          : expression(rhs);
+}
