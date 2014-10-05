@@ -10,4 +10,6 @@ namespace parser {
 Ptr<Atom> parseGroup(bool force_list = false);
 Ptr<Atom> parseLine();
 
+void initParser();
+
 }

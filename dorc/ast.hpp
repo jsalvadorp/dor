@@ -28,7 +28,7 @@ typedef int uchar;
 // Consider implementing this solution with templates, 
 // visitor pattern perhaps, boost::variant
 
-enum Type {
+enum ASTType {
 	ListType = 0,
 	StringType,
 	I64Type,
@@ -52,7 +52,7 @@ struct Atom : std::enable_shared_from_this<Atom> {
     int column;
     Atom() : line(-1), column(-1) {}
     Atom(int l, int c) : line(l), column(c) {}
-    virtual Type type() = 0;
+    virtual ASTType type() = 0;
     virtual ~Atom() {}
     
     virtual void dump(int indent) = 0;
@@ -74,7 +74,7 @@ struct List : Atom { // never-empty list
     Ptr<Atom> head;
     Ptr<List> tail;
     
-    virtual Type type() {return ListType;}
+    virtual ASTType type() {return ListType;}
     
     /*virtual Ptr<List> get_List() {
         return shared_from_this();
@@ -95,6 +95,11 @@ struct List : Atom { // never-empty list
     
     Ptr<List> copy() {
         return newPtr<List>(head, tail ? tail->copy() : nullptr);
+    }
+    
+    Ptr<Atom> at(size_t n) {
+        if(n) return tail->at(n - 1);
+        else return head;
     }
     
     //List() : head(Atom::VoidValue), tail(nullptr) {}
@@ -147,7 +152,7 @@ struct A##name : Atom { \
     ty value; \
     A##name(const ty &t) : value(t) {} \
     A##name(const ty &t, int l, int c) : value(t), Atom(l, c) {} \
-    virtual Type type() {return name##Type;} \
+    virtual ASTType type() {return name##Type;} \
     virtual ty get_##ty() { \
         return value; \
     } \
@@ -172,7 +177,7 @@ ATOM_SPECIALIZE(String, string);
 inline Ptr<Atom> atom(char c) {return atom((uchar)c);}
 
 struct AVoid : Atom {
-    virtual Type type() {return VoidType;}
+    virtual ASTType type() {return VoidType;}
     virtual ~AVoid() {}
     virtual void dump(int level) {print_indent(level); std::cout << "v()" << std::endl;}
     static Ptr<AVoid> value();

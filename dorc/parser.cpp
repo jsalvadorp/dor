@@ -468,13 +468,3 @@ void initParser() {
 
 }
 
-
-int main() {
-    initLexer();
-	parser::initParser();
-	
-	Ptr<List> program = asList(parser::parseGroup(true));
-    
-    program->dump(0);
-    std::cout << endl;
-}

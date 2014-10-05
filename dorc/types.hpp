@@ -35,6 +35,8 @@ inline Ptr<Kind> Kind::k<0>() {
 #define K3 Kind::k<3>()
 #define K4 Kind::k<4>()
 
+void initTypes();
+
 struct Type {
     Ptr<Kind> kind;
     Sym name;
