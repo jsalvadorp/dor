@@ -16,10 +16,10 @@ La salida es un "dump" del arbol sintactico generado.
 
 ## TODO
 
-* usar correctamente line y column, para marcar los errores de sintaxis exactamente donde ocurren.
+* Muy importante: usar correctamente line y column, para marcar los errores de sintaxis exactamente donde ocurren. Por el momento no se transfiere correctamente la linea de los tokens al AST ni al arbol semantico, y la columna ni siquiera se calcula.
 
-* reemplazar los asserts por una forma mas robusta de fallar y reportar errores.
+* Reemplazar los asserts por una forma mas robusta de fallar y reportar errores.
 
 ## Trabajando en
 
-Por el momento se esta escribiendo el analizador semantico, que convierte el arbol de sintaxis en uno anotado que se pueda compilar y checar en tipado.
+Por el momento se esta escribiendo el analizador semantico, que convierte el arbol de sintaxis en uno anotado que se pueda compilar y checar en tipado. Se tiene una version algo cruda de la inferencia de tipos; falta que se puedan cuantificar las variables de tipos. Una vez hecho eso, implementar polimorfismo parametrico sera muy sencillo

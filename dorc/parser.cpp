@@ -165,19 +165,19 @@ Ptr<Atom> parseExpr() {
     Ptr<Atom> a = nullptr;
     
     if(t.token == TID) {
-        a = atom(Sym(t.lexeme), t.line, t.column);
+        a = atom(t.line, t.column, Sym(t.lexeme));
     } else if(t.token == TCHAR) {
-        a = atom(t.lexeme[0] == '\\' ? escapeChar(t.lexeme[1]) : t.lexeme[0]);
+        a = atom(t.line, t.column, t.lexeme[0] == '\\' ? escapeChar(t.lexeme[1]) : t.lexeme[0]);
     } else if(t.token == TSTRING) {
-        a = atom(parseString(t.lexeme), t.line, t.column);
+        a = atom(t.line, t.column, parseString(t.lexeme));
     } else if(t.token == TDINT) {
-        a = atom(parseDecInt(t.lexeme), t.line, t.column);
+        a = atom(t.line, t.column, parseDecInt(t.lexeme));
     } else if(t.token == TXINT) {
-        a = atom(parseHexInt(t.lexeme), t.line, t.column);
+        a = atom(t.line, t.column, parseHexInt(t.lexeme));
     } else if(t.token == TRINT) {
-        a = atom(parseRadixInt(t.lexeme), t.line, t.column);
+        a = atom(t.line, t.column, parseRadixInt(t.lexeme));
     } else if(t.token == TFLOAT) {
-        a = atom(parseFloat(t.lexeme), t.line, t.column);
+        a = atom(t.line, t.column, parseFloat(t.lexeme));
     }
     
     if(a) {
@@ -185,14 +185,15 @@ Ptr<Atom> parseExpr() {
         return a;
     }
     
-    assert(t.token != TOP);
+    if(t.token == TOP)
+        assert(!"Unexpected operator");
     
     if(t.token == TLPAREN) {
         t = nextToken();
         Ptr<Atom> a;
         
         if(t.token == TOP) { // parenthesized op-expr (+)  (*)
-            a = atom(parseInfixOp());
+            a = atom(t.line, t.column, parseInfixOp());
         } else a = parseGroup();
         MATCH(TRPAREN);
         

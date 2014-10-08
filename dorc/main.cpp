@@ -8,7 +8,6 @@ int main() {
     initLexer();
 	parser::initParser();
     
-    initTypes();
     
     
 	
@@ -17,6 +16,7 @@ int main() {
     //program->dump(0);
     
     Ptr<Globals> globals = newPtr<Globals>();
+    initTypes(globals);
     Ptr<Sequence> unit = program(globals, tree);
     
     unit->dump(0);

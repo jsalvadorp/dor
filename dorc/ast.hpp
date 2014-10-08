@@ -15,7 +15,10 @@ using Ptr = std::shared_ptr<T>;//T*;
 template <typename T>
 using WeakPtr = std::weak_ptr<T>;//T*;
 
+
+
 #define newPtr std::make_shared
+#define castPtr std::dynamic_pointer_cast
 //Ptr<T> newPtr(T *t) {return std::make_shared<T>(t);}
 
 using std::string;
@@ -104,8 +107,11 @@ struct List : Atom { // never-empty list
     
     //List() : head(Atom::VoidValue), tail(nullptr) {}
     List(Ptr<Atom> head, Ptr<List> list) : head(head), tail(list) {}
+    List(int l, int c, Ptr<Atom> head, Ptr<List> list) : Atom(l, c), head(head), tail(list) {}
     template<typename T>
     List(T head, Ptr<List> list); //: head(head), tail(list) {}
+    template<typename T>
+    List(int l, int c, T head, Ptr<List> list);
     
     struct List_iterator {
         
@@ -151,15 +157,15 @@ Ptr<List> *appendList(Ptr<List> *l, Ptr<List> a);
 struct A##name : Atom { \
     ty value; \
     A##name(const ty &t) : value(t) {} \
-    A##name(const ty &t, int l, int c) : value(t), Atom(l, c) {} \
+    A##name(int l, int c, const ty &t) : value(t), Atom(l, c) {} \
     virtual ASTType type() {return name##Type;} \
     virtual ty get_##ty() { \
         return value; \
     } \
     virtual ~A##name() {} \
-    virtual void dump(int level) { print_indent(level); std::cout << get_##ty();} \
+    virtual void dump(int level) { print_indent(level); std::cout << std::boolalpha << get_##ty();} \
 }; \
-inline Ptr<Atom> atom(ty t, int l, int c) {return newPtr<A##name>(t, l, c);}\
+inline Ptr<Atom> atom(int l, int c, ty t) {return newPtr<A##name>(l, c, t);}\
 inline Ptr<Atom> atom(ty t) {return newPtr<A##name>(t);}
 
 inline std::ostream &operator<<(std::ostream &out, Sym r) {
@@ -189,6 +195,8 @@ struct AVoid : Atom {
 
 template<typename T>
 List::List(T head, Ptr<List> list) : head(atom(head)), tail(list) {}
+template<typename T>
+List::List(int l, int c, T head, Ptr<List> list) : Atom(l, c),  head(atom(head)), tail(list) {}
 
 }
 

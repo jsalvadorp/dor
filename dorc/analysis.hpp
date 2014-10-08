@@ -45,6 +45,8 @@ struct Binding {
     Ptr<Expression> value;
     Ptr<Binding> parent;
     
+    bool defined;
+    
     int id;
     
     Binding() {}
@@ -54,23 +56,27 @@ struct Binding {
         , type(b.type)
         , name(b.name)
         , qualified_name(b.qualified_name)
+        , defined(b.defined)
         , value(b.value) {}
     Binding(Binding &parent, scope_t scope) 
         : scope(scope)
         , parent(&parent)
         , type(parent.type)
         , name(parent.name)
+        , defined(parent.defined)
         , qualified_name(parent.qualified_name)
         , value(parent.value) {}
+        
+    
 };
 
-struct Env {
+struct Env : TypeEnv {
     Ptr<Env> parent;
     std::unordered_map<Sym, Binding> dictionary;
     
     virtual Binding *find(Sym name);
     
-    Env(Ptr<Env> parent = nullptr) : parent(parent) {}
+    Env(Ptr<Env> parent = nullptr) : parent(parent), TypeEnv(parent) {}
     
     virtual bool isGlobal() {return false;}
 };
@@ -89,6 +95,9 @@ struct Expression {
     int line, column;
     Ptr<Type> type;
     
+    Expression(int line = -1, int column = -1) 
+        : line(line), column(column), type(newPtr<TypeVar>(K1)) {}
+    
      virtual void dump(int level) = 0;
 };
 
@@ -103,7 +112,9 @@ struct Function : Expression, Env {
     
     virtual void dump(int level) {
         ast::print_indent(level);
-        std::cout << "FUNCTION" << std::endl;
+        std::cout << "FUNCTION : ";
+        type->dump();
+        std::cout << std::endl;
         
         ast::print_indent(level + 1);
         std::cout << "CLOSURE ";
@@ -127,6 +138,8 @@ struct Literal : Expression {
     Ptr<Atom> value;
     
     Literal(Ptr<Atom> value, Ptr<Type> type) : value(value) {
+        line = value->line;
+        column = value->column;
         this->type = type;
     }
     
@@ -139,21 +152,25 @@ struct Literal : Expression {
 struct Reference : Expression { // lvalue/rvalue distinciton!!!
     Binding *binding;
     
-    Reference(Binding *b) : binding(b) {}
+    Reference(Binding *b) : binding(b) {
+        type = b->type;
+    }
     
     
     virtual void dump(int level) {
         ast::print_indent(level);
         
         switch(binding->scope) {
-        case PARAMETER: std::cout << "PARAM:"; break;
-        case CLOSURE: std::cout << "CLOSURE:"; break;
-        case LOCAL: std::cout << "LOCAL:"; break;    
-        case GLOBAL: std::cout << "GLOBAL:"; break;  
-        case EXTERN: std::cout << "EXTERN:"; break;    
+        case PARAMETER: std::cout << "PARAM("; break;
+        case CLOSURE: std::cout << "CLOSURE("; break;
+        case LOCAL: std::cout << "LOCAL("; break;    
+        case GLOBAL: std::cout << "GLOBAL("; break;  
+        case EXTERN: std::cout << "EXTERN("; break;    
         }
         
-        std::cout << binding->name.str() << std::endl;
+        std::cout << binding->name.str() << ") : ";
+        binding->type->dump();
+        std::cout << std::endl;
     }
 };
 
@@ -161,7 +178,11 @@ struct Application : Expression {
     Ptr<Expression> left, right;
     
     Application(Ptr<Expression> left, Ptr<Expression> right)
-        : left(left), right(right) {}
+        : left(left), right(right) {
+        assert(this->left!=nullptr);
+        assert(this->right!=nullptr);
+        type = applyTypes(left->type, right->type);
+    }
     
     virtual void dump(int level) {
         ast::print_indent(level);
@@ -176,8 +197,17 @@ struct Assignment : Expression {
     Ptr<Reference> lhs; // replace by generic lvalue reference??
     Ptr<Expression> rhs;
     
+    bool is_const_expr; // 
+    
     Assignment(Ptr<Reference> lhs, Ptr<Expression> rhs)
-        : lhs(lhs), rhs(rhs) {}
+        : lhs(lhs), rhs(rhs), Expression() {
+        assert(this->lhs!=nullptr);
+        assert(this->rhs!=nullptr);
+        
+        type = newPtr<TypeVar>(K1);
+        assert(unifyTypes(type, this->lhs->type));
+        assert(unifyTypes(type, this->rhs->type));
+    }
     
     virtual void dump(int level) {
         ast::print_indent(level);
@@ -192,7 +222,12 @@ struct Conditional : Expression {
     Ptr<Expression> condition, on_false, on_true;
     
     Conditional(Ptr<Expression> condition, Ptr<Expression> on_true, Ptr<Expression> on_false)
-        : condition(condition), on_false(on_false), on_true(on_true) {}
+        : condition(condition), on_false(on_false), on_true(on_true) {
+        type = newPtr<TypeVar>(K1);
+        assert(unifyTypes(condition->type, Bool));
+        assert(unifyTypes(type, on_true->type));
+        assert(unifyTypes(type, on_false->type));
+    }
     Conditional() {}
     
     virtual void dump(int level) {
@@ -224,7 +259,7 @@ struct Sequence : Expression {
 
 struct MatchClause {
     Ptr<Env> env;
-    Ptr<Expression> pattern, body;
+    Ptr<Expression> pattern, condition, body;
 };
 
 struct Match : Expression {
@@ -235,3 +270,4 @@ struct Match : Expression {
 
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp);
 Ptr<Sequence> program(Ptr<Globals> env, Ptr<List> body);
+
