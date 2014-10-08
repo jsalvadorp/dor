@@ -1,7 +1,7 @@
 # Dor
 Dor es un lenguaje funcional, estrictamente tipado.
 
-Por el momento solo funciona el lexer y el parser.
+Por el momento tiene un type-checker basico.
 
 ## Instrucciones
 Compilacion
@@ -10,9 +10,9 @@ Compilacion
 
 Ejecucion
 
-    ./bin/dorc <samples/correcto.dor
+    ./bin/dorc <samples/analysis.dor
 
-La salida es un "dump" del arbol sintactico generado.
+La salida es un "dump" del arbol semantico generado.
 
 ## TODO
 
