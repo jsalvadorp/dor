@@ -171,7 +171,8 @@ Ptr<Conditional> if_(Ptr<Env> env, Ptr<List> args);
 Ptr<Reference> reference(Ptr<Env> env, Ptr<Atom> a) {
     Binding *b = env->find(a->get_Sym());
     
-    if(!b || (!b->defined && b->scope != GLOBAL)) { // only globals can be forward-declared
+    // only externs and globals can be forward-declared
+    if(!b || (!b->defined && b->scope != GLOBAL && b->scope != EXTERN)) { 
         std::cerr << "Undefined " << a->get_Sym().str() << std::endl;
         assert(!"Undefined symbol");
     }
@@ -363,23 +364,55 @@ Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args) {
     }
 }
 
+Sym processLhs(Ptr<Atom> lhs, Ptr<List> *&params_dest, Ptr<Atom> *type_exp, bool can_type_head) {
+    if(lhs->type() == SymType) {
+        return lhs->get_Sym();
+    } else {
+        Ptr<List> head_rest;
+        if(headis(lhs, ":", head_rest)) {
+            assert(can_type_head);
+            assert(arity_is<2>(head_rest));
+            
+            *type_exp = head_rest->at(1);
+            return processLhs(head_rest->at(0), params_dest, type_exp, false);
+        } else {
+            Ptr<List> l = asList(lhs);
+            assert(arity_is_min<2>(l));
+            
+            Sym name = processLhs(l->head, params_dest, type_exp, false);
+            
+            for(Ptr<Atom> arg : *l->tail) {
+                params_dest = append(params_dest, arg);
+            }
+            
+            return name;
+        }
+    }
+}
+
+
 Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool variable) {
     Sym name;
     Ptr<List> params;
     Ptr<List> *params_dest = &params;
     
-    while(lhs->type() == ListType) {
+    Ptr<Atom> type_exp;
+    
+    /*while(lhs->type() == ListType) {
         Ptr<List> rest = asList(lhs)->tail->copy();
         params_dest = appendList(params_dest, rest);
         lhs = asList(lhs)->head;
     }
     
     assert(lhs->type() == SymType);
-    name = lhs->get_Sym();
+    name = lhs->get_Sym();*/
+    
+    name = processLhs(lhs, params_dest, &type_exp, true);
     
     // redefinitions not allowed!
     auto it = env->dictionary.find(name);
-    assert(it == env->dictionary.end() || !it->second.defined);
+    assert(it == env->dictionary.end() 
+        || (it->second.scope != EXTERN && !it->second.defined));
     
     // the early binding is necessary for recursion
     Binding *new_binding = &env->dictionary[name];
@@ -440,3 +473,30 @@ Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args) {
     
     return app;
 } 
+
+void initExtern(Ptr<Globals> g, Sym name, Ptr<Type> type) {
+    Binding *new_binding = &g->dictionary[name];
+    new_binding->scope = EXTERN;
+    new_binding->mut = CONST;
+    new_binding->name = name;
+    new_binding->defined = false;
+    new_binding->type = type;
+}
+
+void initGlobals(Ptr<Globals> g) {
+    Ptr<Type> 
+        intIntInt = funcType(Int, funcType(Int, Int)),
+        intIntBool = funcType(Int, funcType(Int, Bool));
+        
+    initExtern(g, Sym("+"), intIntInt);
+    initExtern(g, Sym("-"), intIntInt);
+    initExtern(g, Sym("*"), intIntInt);
+    initExtern(g, Sym("/"), intIntInt);
+    initExtern(g, Sym("%"), intIntInt);
+    initExtern(g, Sym("<"), intIntBool);
+    initExtern(g, Sym(">"), intIntBool);
+    initExtern(g, Sym("<="), intIntBool);
+    initExtern(g, Sym(">="), intIntBool);
+    initExtern(g, Sym("=="), intIntBool);
+    initExtern(g, Sym("!="), intIntBool);
+}

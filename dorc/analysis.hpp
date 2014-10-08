@@ -186,7 +186,9 @@ struct Application : Expression {
     
     virtual void dump(int level) {
         ast::print_indent(level);
-        std::cout << "APPLY" << std::endl;
+        std::cout << "APPLY : ";
+        type->dump();
+        std::cout << std::endl;
         
         left->dump(level + 1);
         right->dump(level + 1);
@@ -271,3 +273,4 @@ struct Match : Expression {
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp);
 Ptr<Sequence> program(Ptr<Globals> env, Ptr<List> body);
 
+void initGlobals(Ptr<Globals> g);

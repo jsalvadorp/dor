@@ -17,6 +17,7 @@ int main() {
     
     Ptr<Globals> globals = newPtr<Globals>();
     initTypes(globals);
+    initGlobals(globals);
     Ptr<Sequence> unit = program(globals, tree);
     
     unit->dump(0);

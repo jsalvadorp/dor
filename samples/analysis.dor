@@ -9,18 +9,6 @@ infixl (<++++>) 45
 # Myglobal : Int
 Myglobal = 1
 
-# (==) : t0 t1 => t0 -> t1 -> Bool
-a == x = True
-
-# (*) : t0 t1 => t0 -> t1 -> Int
-a * b = 1
-
-# (-) : t0 t1 => t0 -> t1 -> Int
-a - b = 1
-
-# (+) : t0 t1 => t0 -> t1 -> Float
-a + b = 3.48
-
 # (<++++>) : t0 t1 => t0 -> t1 -> Float
 x <++++> y = x + y
 
@@ -36,3 +24,14 @@ fac n =
   if (n == 0)
     1
     n * fac (n - 1)
+
+
+# composicion funcional
+# (<:) : t0 t1 t2 => (t0 -> t1) -> (t2 -> t0) -> (t2 -> t1)
+(f <: g) x = f (g x)
+
+infixl (<|) 100
+
+f <| x = f x
+
+suma a b = (+) <| a <| b
