@@ -1,4 +1,4 @@
-CC=g++ -std=c++11 -Wno-deprecated-register
+CC=clang++ -std=c++11 -Wno-deprecated-register
 CFLAGS=-c
 DFLAGS=-g
 LFLAGS=-lfl

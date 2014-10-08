@@ -42,26 +42,27 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
     if(x == nullptr) x = y;
     if(y == nullptr) y = x;
     */
-    std::cout << "unify" << std::endl;
     assert(x != nullptr && y != nullptr);
     
     //x = x->getRoot(), y = y->getRoot();
     shorten(x);
     shorten(y);
     
+    // x debe ser de menor rango que y
+    if(y->getRank() < x->getRank())
+        return unifyTypes(y, x);
+    
     if(x->type() == TFORALL) {
         Ptr<Type> x_i = 
-            std::dynamic_pointer_cast<TypeForAll, Type>(x)->instance();
+            castPtr<TypeForAll, Type>(x)->instance();
         
-        std::cout << "unify xforall" << std::endl;
         return unifyTypes(x_i, y);
     }
     
     if(y->type() == TFORALL) {
         Ptr<Type> y_i = 
-            std::dynamic_pointer_cast<TypeForAll, Type>(y)->instance();
+            castPtr<TypeForAll, Type>(y)->instance();
         
-        std::cout << "unify yforall" << std::endl;
         assert(y_i != nullptr);
         return unifyTypes(x, y_i);
     }
@@ -69,45 +70,34 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
     if(x == y) return true;
     
     // TODO: check interface membership
-    // TODO: occurs check!!!!!!!!!!!!
     
     if(!unifyKinds(x->kind, y->kind)) 
         return false;
     
-    if(x->getRank() > y->getRank()) {
+    
+    if(y->isUnboundVar()) {
+        assert(!x->contains(castPtr<TypeVar, Type>(y))); // occurs check
         y->setParent(x);
         y = x;
         return true;
-    } else if(x->getRank() < y->getRank()) {
+    } else if(x->isUnboundVar()) {
+        assert(!y->contains(castPtr<TypeVar, Type>(x))); // occurs check
         x->setParent(y);
         x = y;
         return true;
-    } else { // same rank, still not unified
-        if(y->isUnboundVar()) {
-            y->setParent(x);
-            x->setRank(x->getRank() + 1);
-            y = x;
+    } else if(x->type() == TAPP && y->type() == TAPP) {
+        Ptr<TypeApp> 
+            x_a = castPtr<TypeApp, Type>(x), 
+            y_a = castPtr<TypeApp, Type>(y);
+        if(unifyTypes(x_a->left, y_a->left)
+            && unifyTypes(x_a->right, y_a->right)) {
+                x = y;
             return true;
-        } else if(x->isUnboundVar()) {
-            x->setParent(y);
-            y->setRank(y->getRank() + 1);
-            x = y;
-            return true;
-        } else {
-            if(x->type() == TAPP && y->type() == TAPP) {
-                Ptr<TypeApp> 
-                    x_a = std::dynamic_pointer_cast<TypeApp, Type>(x), 
-                    y_a = std::dynamic_pointer_cast<TypeApp, Type>(y);
-                if(unifyTypes(x_a->left, y_a->left)
-                    && unifyTypes(x_a->right, y_a->right)) {
-                        x = y;
-                    return true;
-                } 
-            } else if(x->type() != TAPP && y->type() != TAPP) {
-                return x == y;
-            }
-        }
-    } 
+        } 
+    } else if(x->type() != TAPP && y->type() != TAPP) {
+        return x == y;
+    }
+     
     return false;
 }
 

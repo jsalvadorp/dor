@@ -62,6 +62,8 @@ struct Type : std::enable_shared_from_this<Type> {
     Type(Sym name, Ptr<Kind> kind = nullptr) : name(name), kind(kind) {}
     Type(const char *s, Ptr<Kind> kind = nullptr) : name(Sym(s)), kind(kind) {}
     
+    // too many virtual functions
+    
     virtual Ptr<Type> getRoot() {return shared_from_this();}
     virtual size_t getRank() {return INFINITY;}
     virtual void setRank(size_t s) {}
@@ -82,6 +84,8 @@ struct Type : std::enable_shared_from_this<Type> {
     virtual Ptr<Type> substitute(Ptr<TypeForAll> old_q, std::vector<Ptr<TypeVar> > &new_q) {
         return shared_from_this();
     }
+    
+    virtual bool contains(Ptr<TypeVar> v) {return false;}
 };
 
 inline Ptr<Type> &shorten(Ptr<Type> &t) {
@@ -117,6 +121,10 @@ struct TypeForAll : Type {
     virtual Ptr<Type> substitute(Ptr<TypeForAll> old_q, std::vector<Ptr<TypeVar> > &new_q);
 //private:
     //std::unordered_set<Ptr<TypeVar> > bound_vars;
+    virtual bool contains(Ptr<TypeVar> v) {
+        // should it assert against bound_vars?
+        return right->contains(v);
+    }
 };
 
 bool isFuncType(Ptr<Type> ft, Ptr<Type> *from = nullptr, Ptr<Type> *to = nullptr);
@@ -178,6 +186,10 @@ struct TypeApp : Type {
         return shared_from_this();
     }
     
+    virtual bool contains(Ptr<TypeVar> v) {
+        // should it assert against bound_vars?
+        return left->contains(v) || right->contains(v);
+    }
 };
 
 
@@ -255,6 +267,13 @@ struct TypeVar : Type {
         Ptr<Type> root = getRoot();
 
         return root->substitute(old_q, new_q);
+    }
+    
+    virtual bool contains(Ptr<TypeVar> v) {
+        
+        return parent == nullptr
+            ? v->getRoot().get() == this
+            : getRoot()->contains(v);
     }
 };
 

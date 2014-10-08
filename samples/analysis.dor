@@ -31,7 +31,8 @@ id x = x
 first a b = a
 
 # fac : Int -> Int
-fac n =
+
+fac n = 
   if (n == 0)
-      1
-      n * fac (n - 1)
+    1
+    n * fac (n - 1)
