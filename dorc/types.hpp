@@ -42,7 +42,7 @@ inline Ptr<Kind> Kind::k<0>() {
 struct Globals;
 void initTypes(Ptr<Globals> g);
 
-#define INFINITY 1000000000 // the rank of bound types
+#define RANK_INF 1000000000 // the rank of bound types
 
 enum TypeType {
     TYPE,
@@ -65,7 +65,7 @@ struct Type : std::enable_shared_from_this<Type> {
     // too many virtual functions
     
     virtual Ptr<Type> getRoot() {return shared_from_this();}
-    virtual size_t getRank() {return INFINITY;}
+    virtual size_t getRank() {return RANK_INF;}
     virtual void setRank(size_t s) {}
     virtual void setParent(Ptr<Type> t) {assert(!"Tried to reparent bound type");}
     
@@ -196,7 +196,7 @@ struct TypeApp : Type {
 
 struct TypeVar : Type {
     Ptr<Type> parent;
-    size_t rank; // if rank == INFINITY then variable is bound
+    size_t rank; // if rank == RANK_INF then variable is bound
     
     virtual TypeType type() {return TVAR;}
     
@@ -234,7 +234,7 @@ struct TypeVar : Type {
     virtual bool isApp() {return false;}
     virtual bool isUnboundVar() {
         Ptr<Type> root = getRoot();
-        return root->getRank() < INFINITY;
+        return root->getRank() < RANK_INF;
     }
     virtual bool isVar() {return true;}
     

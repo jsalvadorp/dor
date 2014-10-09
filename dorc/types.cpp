@@ -235,7 +235,7 @@ Ptr<Type> TypeForAll::substitute(Ptr<TypeForAll> old_q, std::vector<Ptr<TypeVar>
         for(int i = 0; i < bound_vars.size(); i++) {
             Ptr<TypeVar> tv = newPtr<TypeVar>(bound_vars[i]->kind);
             tv->id = i;
-            tv->rank = INFINITY;
+            tv->rank = RANK_INF;
             tv->quantifier = f.get();
             f->bound_vars.push_back(tv);
         }
@@ -275,6 +275,6 @@ void TypeForAll::capture(Ptr<TypeVar> variable) {
     // otherwise, bind it
     variable->quantifier = this;
     variable->id = bound_vars.size();
-    variable->setRank(INFINITY);
+    variable->setRank(RANK_INF);
     bound_vars.push_back(variable);
 }
