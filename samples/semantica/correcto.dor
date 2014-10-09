@@ -1,0 +1,76 @@
+
+# Checks de tipos
+
+# los operadores predefinidos:
+
+# (*) : Int -> Int -> Int
+# (/) : Int -> Int -> Int
+# (%) : Int -> Int -> Int
+# (+) : Int -> Int -> Int
+# (-) : Int -> Int -> Int
+
+# (<) : Int -> Int -> Bool
+# (>) : Int -> Int -> Bool
+# (<=) : Int -> Int -> Bool
+# (>=) : Int -> Int -> Bool
+# (==) : Int -> Int -> Bool
+# (!=) : Int -> Int -> Bool
+
+# definir un nuevo operador infijo
+infixl (<++++>) 45
+
+
+# cada ejemplo es precedido por un comentario con el tipo que el compilador debe inferir
+
+# String
+Myglobal = "Hello"
+
+# Int -> Int -> Bool
+x <++++> y = x + y == 7
+
+# tipo parametrico: "para todo t0, id es una funcion de t0 a t0"
+# t0 => t0 -> t0
+id x = x
+
+# t0 t1 => t0 -> t1 -> t0
+first a b = a
+
+# Int -> Int
+fac n = 
+  if (n == 0) 
+    1
+    n * fac (n - 1)
+
+# composicion funcional
+# t0 t1 t2 => (t0 -> t1) -> (t2 -> t0) -> (t2 -> t1)
+(f <: g) x = f (g x)
+
+# forward-declaration:
+# es necesario declarar f antes de definir mifuncion, porque son 
+# mutuamente recursivas. Este lenguaje no permite deduccion de tipos 
+# sobre 2 globales al mismo tiempo (por ahora...)
+
+f : Int -> Int
+# Int -> Int
+mifuncion a = 3 + f a - 7
+f i = 4 * i - mifuncion i
+
+# Checks de scoping
+
+# nota: por ahora los 9 operadores basicos estan definidos como externs
+
+# (n m) son parametros de mifunc.
+# x es una variable local
+# se crea un lambda que captura (x m n) de su contexto y las mete en su
+# 'closure', y se aplica al valor 8 y eso se devuelve como resultado
+
+mifunc n = m -> do
+  var x = n < 5
+  (y -> if x (m + n) y) 8
+
+# nota: lo siguiente aun no funciona, lamentablemente aun no se que hacer
+# cuando el usuario ya dio un tipo cuantificado...
+
+# nf : a b => a -> b -> a
+# nf n x = n
+

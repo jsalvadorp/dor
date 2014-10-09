@@ -1,0 +1,8 @@
+
+
+# tipos en conflicto: que debe regresar la siguiente funcion? Int o Bool
+
+f x = 
+  if (x < 5)
+     x
+     True

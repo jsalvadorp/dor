@@ -1,0 +1,5 @@
+
+
+# tipo indecidible: el tipo de la siguiente funcion no se puede inferir.
+
+funcion f = f f

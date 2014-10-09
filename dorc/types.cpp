@@ -278,3 +278,18 @@ void TypeForAll::capture(Ptr<TypeVar> variable) {
     variable->setRank(RANK_INF);
     bound_vars.push_back(variable);
 }
+
+
+// check that a given type has more constraints that another
+// right know it only works if they are only quantified at the outermost
+// part, no inner quantifications. And it does not consider interfaces,
+// just the number of variables
+bool isMoreConstrained(Ptr<Type> a, Ptr<Type> b) {
+    if(a->type() == TFORALL) {
+        Ptr<TypeForAll> fa = castPtr<TypeForAll, Type>(a);
+        if(b->type() == TFORALL) {
+            Ptr<TypeForAll> fb = castPtr<TypeForAll, Type>(b);
+            return fa->bound_vars.size() <= fb->bound_vars.size(); // has less open variables
+        } else return true;
+    } else return true; // if the user-given type is not a forall, it is a solid type without variables of any kind
+}
