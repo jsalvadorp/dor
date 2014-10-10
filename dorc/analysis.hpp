@@ -145,6 +145,8 @@ struct Literal : Expression {
     
     virtual void dump(int level) {
         value->dump(level);
+        std::cout << " : ";
+        type->dump();
         std::cout << std::endl;
     }
 };

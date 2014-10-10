@@ -250,7 +250,7 @@ struct TypeVar : Type {
         if(parent != nullptr) getRoot()->dump();
         else if(name.valid()) std::cout << name.str() << " ";
         else if(quantifier != nullptr) std::cout << "t" << id << " ";
-        else std::cout << "? ";
+        else std::cout << "#" << getRoot().get();
     }
     
     virtual Ptr<Type> substitute(Ptr<TypeForAll> old_q, std::vector<Ptr<TypeVar> > &new_q) {

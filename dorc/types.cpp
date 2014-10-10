@@ -48,7 +48,7 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
     shorten(x);
     shorten(y);
     
-    // x debe ser de menor rango que y
+    // x debe ser de menor rango que y!!!!!!!!!!
     if(y->getRank() < x->getRank())
         return unifyTypes(y, x);
     
@@ -75,13 +75,24 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
         return false;
     
     
-    if(y->isUnboundVar()) {
+    /*if(y->isUnboundVar()) {
         assert(!x->contains(castPtr<TypeVar, Type>(y))); // occurs check
+        if(x )
         y->setParent(x);
         y = x;
         return true;
-    } else if(x->isUnboundVar()) {
+    } else */if(x->isUnboundVar()) {
         assert(!y->contains(castPtr<TypeVar, Type>(x))); // occurs check
+        
+        // y is a bound var
+        if(y->type() == TVAR && y->getRank() == RANK_INF) {
+            std::cout << "unifying var ";
+            x->dump();
+            std::cout << " with bound var ";
+            y->dump();
+            std::cout << std::endl;
+        }
+        
         x->setParent(y);
         x = y;
         return true;
@@ -256,7 +267,9 @@ void TypeForAll::dump() {
     //std::cout << (name.valid() ? name.str() : "?") << " ";
     std::cout << "(";
     for(Ptr<TypeVar> tv : bound_vars) {
-        std::cout << "t" << tv->id << " ";
+        //if(tv->name.valid()) std::cout << tv->name.str() << " ";
+        //else std::cout << "t" << tv->id << " ";
+        tv->dump();
     }
     std::cout << "=> ";
     
@@ -276,6 +289,7 @@ void TypeForAll::capture(Ptr<TypeVar> variable) {
     variable->quantifier = this;
     variable->id = bound_vars.size();
     variable->setRank(RANK_INF);
+    variable->name = variable->name.valid() ? variable->name : Sym(std::string("t") + std::to_string(variable->id));
     bound_vars.push_back(variable);
 }
 

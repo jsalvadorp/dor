@@ -44,6 +44,11 @@ fac n =
 # composicion funcional
 # t0 t1 t2 => (t0 -> t1) -> (t2 -> t0) -> (t2 -> t1)
 (f <: g) x = f (g x)
+(g :> f) x = f (g x)
+
+# aplicacion funcional de baja prioridad
+infixr (<|) 100
+f <| x = f x
 
 # forward-declaration:
 # es necesario declarar f antes de definir mifuncion, porque son 
@@ -51,7 +56,6 @@ fac n =
 # sobre 2 globales al mismo tiempo (por ahora...)
 
 f : Int -> Int
-# Int -> Int
 mifuncion a = 3 + f a - 7
 f i = 4 * i - mifuncion i
 
@@ -71,6 +75,19 @@ mifunc n = m -> do
 # nota: lo siguiente aun no funciona, lamentablemente aun no se que hacer
 # cuando el usuario ya dio un tipo cuantificado...
 
-# nf : a b => a -> b -> a
-# nf n x = n
+# si se comenta la siguiente linea, la deduccion fallara para nf
+nf : a => a -> Int
+nf x = nf "helo" + nf True + nf 1
+
+fib n =
+  cond
+    n == 0 => 1
+    n == 1 => 1
+    else   => fib (n - 1) + fib (n - 2)
+    
+
+
+# type List t = Nil | t :: (List a)
+# type Option t = None | Some t
+
 

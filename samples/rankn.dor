@@ -1,0 +1,4 @@
+# rank-n types are not allowed for n>1
+
+fip : (a => a -> Int) -> Int
+fip f = 1 # f "hi" + f 1

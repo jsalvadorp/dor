@@ -13,7 +13,7 @@ int main() {
 	
 	Ptr<List> tree = asList(parser::parseGroup(true));
     
-    //program->dump(0);
+    tree->dump(0);
     
     Ptr<Globals> globals = newPtr<Globals>();
     initTypes(globals);

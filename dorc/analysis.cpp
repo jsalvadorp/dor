@@ -118,10 +118,11 @@ Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args);
 
 
 Ptr<Application> application(Ptr<Env> env, Ptr<List> args);
-Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Binding *binding = nullptr);
+Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype = newPtr<TypeVar>(K1));
 Ptr<Sequence> sequence(Ptr<Env> env, Ptr<List> args);
 Ptr<Expression> expression(Ptr<Env> env, Ptr<Atom> a, Binding *binding = nullptr);
 Ptr<Reference> reference(Ptr<Env> env, Ptr<Atom> a);
+Ptr<Expression> cond(Ptr<Env> env, Ptr<List> args);
 
 Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args);
 Ptr<Type> typeExpression(Ptr<TypeEnv> env, Ptr<Atom> exp);
@@ -136,6 +137,8 @@ Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp) {
         // ignore
     } else if(headis(exp, "infixl", rest)) {
         // ignore
+    } else if(exp->type() == SymType && exp->get_Sym() == Sym("break")) {
+        std::cout << "break"<< std::endl;
     }
     
     return nullptr;
@@ -209,11 +212,13 @@ Ptr<Expression> expression(Ptr<Env> env, Ptr<Atom> a, Binding *binding) {
         Ptr<List> a_list = asList(a);
         Ptr<List> a_rest;
         if(headis(a, "->", a_rest)) {
-            return function(env, a_rest, binding);
+            return function(env, a_rest);
         } else if(headis(a, "do", a_rest)) {
             return sequence(env, a_rest);
         } else if(headis(a, "if", a_rest)) {
             return if_(env, a_rest);
+        } else if(headis(a, "cond", a_rest)) {
+            return cond(env, a_rest);
         } else if(headis(a, "=", a_rest)) {
             return define(env, a_rest);
         } else {
@@ -232,6 +237,39 @@ Ptr<Conditional> if_(Ptr<Env> env, Ptr<List> args) {
         expression(env, args->at(2)));
 }
 
+
+
+Ptr<Expression> cond_rec(Ptr<Env> env, Ptr<List> args) {
+    assert(arity_is_min<1>(args));
+    
+    Ptr<List> clause;
+    
+    assert(headis(args->head, "=>", clause));
+    
+    assert(arity_is<2>(clause));
+    Ptr<Atom> condition = clause->at(0), on_true = clause->at(1);
+    
+    if(args->tail == nullptr) { // last clause, else clause
+        assert(condition->type() == SymType 
+            && condition->get_Sym() == Sym("else"));
+        
+        return expression(env, on_true);
+    } else assert(condition->type() != SymType 
+            || condition->get_Sym() != Sym("else"));
+    
+    return newPtr<Conditional>(
+        expression(env, condition), 
+        expression(env, on_true), 
+        cond_rec(env, args->tail));
+}
+
+
+Ptr<Expression> cond(Ptr<Env> env, Ptr<List> args) {
+    assert(arity_is_min<2>(args));
+    
+    return cond_rec(env, args);
+}
+
 Ptr<Application> application(Ptr<Env> env, Ptr<List> args) {
     assert(arity_is_min<2>(args));
     
@@ -246,12 +284,13 @@ Ptr<Application> application(Ptr<Env> env, Ptr<List> args) {
     return app;
 } 
 
-Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Binding * b) {
+Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
     Ptr<List> params;
     Ptr<List> *params_dest = &params;
     
-    Ptr<Type> ftype = b ? b->type : newPtr<TypeVar>(K1),
-        ret = ftype;
+    //Ptr<Type> ftype = newPtr<TypeVar>(K1),
+    //    ret = ftype;
+    Ptr<Type> ret = ftype;
     
     Ptr<Atom> body;
     
@@ -271,7 +310,7 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Binding * b) {
     } while(headis(body, "->", args));
     
     Ptr<Function> func = newPtr<Function>(env);
-    func->type = newPtr<TypeVar>(K1);
+    func->type = ftype;//newPtr<TypeVar>(K1);
     
     for(Ptr<Atom> p : *params) {
         Sym name;
@@ -292,9 +331,23 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Binding * b) {
         binding.mut = VAR;
         binding.name = name;
         binding.defined = true;
-        binding.type = newPtr<TypeVar>(K1);
+        //binding.type = newPtr<TypeVar>(K1);
         
-        ret = applyTypes(ret, binding.type);
+        // ret = applyTypes(ret, binding.type);
+        
+        Ptr<Type> from, to;
+        shorten(ret);
+        
+        if(isFuncType(ret, &from, &to)) {
+            
+            binding.type = from;
+            ret = to;
+        } else {
+            assert(ret->type() != TFORALL); // NO foralls on the right
+            
+            binding.type = newPtr<TypeVar>(K1);
+            ret = applyTypes(ret, binding.type);
+        }
         
         func->dictionary[name] = binding;
         func->parameters.push_back(&func->dictionary[name]);
@@ -346,17 +399,21 @@ Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args) {
     Binding *b;
     if(args->head->type() == SymType) {
         if((b = env->find(args->head->get_Sym()))) {
+            //assert(!"tried to redeclare a value");
             assert(unifyTypes(b->type, type));
             return reference(env, args->head);
         } else {
+            // new value!
             b = &env->dictionary[args->head->get_Sym()];
             b->scope = env->isGlobal() ? GLOBAL : LOCAL;
+            b->name = args->head->get_Sym();
+            b->defined = false;
            
-            if(b->type == nullptr) b->type = type;
-            else assert(unifyTypes(b->type, type));
+            /*if(b->type == nullptr)*/ b->type = type;
+            /*else assert(unifyTypes(b->type, type));*/
             
-            if(b->defined) return newPtr<Reference>(b);
-            else return nullptr;
+            /*if(b->defined)*/ return newPtr<Reference>(b);
+            /*else */return nullptr;
         }
     } else {
         Ptr<Expression> exp = expression(env, args->head);
@@ -399,15 +456,6 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
     
     Ptr<Atom> type_exp;
     
-    /*while(lhs->type() == ListType) {
-        Ptr<List> rest = asList(lhs)->tail->copy();
-        params_dest = appendList(params_dest, rest);
-        lhs = asList(lhs)->head;
-    }
-    
-    assert(lhs->type() == SymType);
-    name = lhs->get_Sym();*/
-    
     name = processLhs(lhs, params_dest, &type_exp, true);
     
     // for now: declarations of the form    f (a:Int) (b:Int) :Int = ...
@@ -427,42 +475,59 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
     new_binding->mut = variable ? VAR : CONST;
     new_binding->name = name;
     
+    // had_a_type means user provided a complete type without free variables
     had_a_type = new_binding->type != nullptr;
-    if(!had_a_type) // start deducing new type
+    if(!had_a_type) // else give it a typevar so recursion can aid us in finding a type
         new_binding->type = newPtr<TypeVar>(K1);
+        
         
     new_binding->defined = true; 
     
-    Ptr<Expression> exp = 
-        params != nullptr ? function(env, list({params, rhs}), new_binding)
-                          : expression(env, rhs, new_binding);
-    assert(unifyTypes(new_binding->type, exp->type));              
+    Ptr<Expression> exp;    
+    
+    if(had_a_type) { // let's match the type of exp with user-type
+        if(new_binding->type->type() == TFORALL) {
+            // we must unify with ONLY the right part of the quantified
+            // type. The body of the function/rhs is considered to be
+            // in the context of the quantifier: all variables must be
+            // "rigid" or quantified to it. if we didn't, the unifier 
+            // would make an instance of new_binding->type and that 
+            // would make some freevars
+            Ptr<TypeForAll> tfa = castPtr<TypeForAll>(new_binding->type);
+            //assert(unifyTypes(tfa->right, exp->type));
+            //shorten(exp->type);
+            
+            if(params != nullptr) {
+                exp = function(env, list({params, rhs}), tfa->right);
+                assert(unifyTypes(tfa->right, exp->type));
+                shorten(exp->type);
+            } else {
+                exp = expression(env, rhs, new_binding);
+                assert(unifyTypes(tfa->right, exp->type));
+                shorten(exp->type);
+            }
+        } else { // assuming no more quantifiers inside new_binding->type!!
+            exp = params != nullptr 
+                ? function(env, list({params, rhs}))
+                : expression(env, rhs, new_binding);  
+            assert(unifyTypes(new_binding->type, exp->type));
+            shorten(exp->type);
+        }
+    } else { // no user-given type. capture freevars!
+        exp = params != nullptr 
+                ? function(env, list({params, rhs}))
+                : expression(env, rhs, new_binding);  
                           
-    // if the binding already had a type, then it cannot have been 
-    // constrained by the rhs. thus, if the real type should be more 
-    // constrained, it can be found at exp->type. we will quantify that,
-    // see if it is more constrained than new_binding->type and if so,
-    // exp->type is the more correct type: fire an error blaming the
-    // programmer for specifying a more general type than can be
-    // inferred (instead of confusingly and silently producing a better 
-    // type)
+        Ptr<TypeForAll> q = newPtr<TypeForAll>();
+        q->init(exp->type);
+        if(!q->bound_vars.empty()) { // any free variables captured??
+            new_binding->type = q; 
+        } else new_binding->type = exp->type;
+    }
     
-    
-    
-    
-    //Ptr<Assignment> ass = newPtr<Assignment>(newPtr<Reference>(new_binding), exp);
-    
-    Ptr<TypeForAll> q = newPtr<TypeForAll>();
-    q->init(exp->type);
-    //q->init(new_binding->type);
-    
-    if(!q->bound_vars.empty()) { // any free variables captured??
-        if(had_a_type)
-            assert(isMoreConstrained(new_binding->type, q)); // key!
-        new_binding->type = q; 
-    } // else new_binding->type already is ok since no freevars and unified with exp->type
-    
-    Ptr<Assignment> ass = newPtr<Assignment>(newPtr<Reference>(new_binding), exp);
+    Ptr<Reference> lref = newPtr<Reference>(new_binding);
+    // unification already happened so the following must be ok
+    Ptr<Assignment> ass = newPtr<Assignment>(lref, exp);
     return ass;
 }
 
@@ -485,6 +550,9 @@ Ptr<Type> typeExpression(Ptr<TypeEnv> env, Ptr<Atom> exp) {
     }
 }
 
+// disallow nested quantifiers on the right side of a ->.
+// that is, user cannot write "a => a -> Int -> (b => b -> Bool)";
+// must write "a b => a -> Int -> b -> Bool"
 Ptr<TypeForAll> typeQuantified(Ptr<TypeEnv> env, Ptr<List> args) {
     assert(arity_is<2>(args));
     
@@ -494,16 +562,16 @@ Ptr<TypeForAll> typeQuantified(Ptr<TypeEnv> env, Ptr<List> args) {
     Ptr<TypeEnv> new_env = newPtr<TypeEnv>(env);
     
     if(left->type() == SymType) {
-        Ptr<TypeVar> v = newPtr<TypeVar>();
+        Ptr<TypeVar> v = newPtr<TypeVar>(left->get_Sym());
         tfa->capture(v);
         new_env->type_dictionary[left->get_Sym()] = v;
     } else {
         assert(left->type() == ListType);
         for(Ptr<Atom> a : *asList(left)) {
             assert(a->type() == SymType); // TODO: handle interface constraints
-            Ptr<TypeVar> v = newPtr<TypeVar>();
+            Ptr<TypeVar> v = newPtr<TypeVar>(a->get_Sym());
             tfa->capture(v);
-            new_env->type_dictionary[left->get_Sym()] = v;
+            new_env->type_dictionary[a->get_Sym()] = v;
         }
     }
     
