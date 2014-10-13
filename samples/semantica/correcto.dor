@@ -89,5 +89,22 @@ fib n =
 
 # type List t = Nil | t :: (List a)
 # type Option t = None | Some t
+type Ty = m => m Int -> Int
 
+infixr (::) 95
 
+data Person = Person String Int
+data List a = Nil | a :: (List a)
+
+juan = Person "Hola" 6
+vacia = Nil
+unodos = 1 :: 2 :: Nil
+
+data ContInt c = Cont (c Int)
+
+x = Cont unodos
+
+data Any = x => Any x
+
+yy = Any 6
+zz = Any "hello"

@@ -46,6 +46,7 @@ struct Binding {
     Ptr<Binding> parent;
     
     bool defined;
+    bool constructor;
     
     int id;
     
@@ -57,7 +58,8 @@ struct Binding {
         , name(b.name)
         , qualified_name(b.qualified_name)
         , defined(b.defined)
-        , value(b.value) {}
+        , value(b.value)
+        , constructor(false) {}
     Binding(Binding &parent, scope_t scope) 
         : scope(scope)
         , parent(&parent)
@@ -65,7 +67,8 @@ struct Binding {
         , name(parent.name)
         , defined(parent.defined)
         , qualified_name(parent.qualified_name)
-        , value(parent.value) {}
+        , value(parent.value)
+        , constructor(false) {}
         
     
 };

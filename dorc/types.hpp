@@ -13,6 +13,9 @@
 using ast::Ptr;
 using ast::WeakPtr;
 
+
+struct Binding;
+
 struct Kind {
     Ptr<Kind> from;
     Ptr<Kind> to;
@@ -91,6 +94,14 @@ struct Type : std::enable_shared_from_this<Type> {
 inline Ptr<Type> &shorten(Ptr<Type> &t) {
     return t = t->getRoot();
 }
+
+struct AlgebraicType : Type {
+    std::vector<Binding *> constructors;
+    
+    AlgebraicType(Ptr<Kind> kind = nullptr) : Type(kind) {}
+    AlgebraicType(Sym name, Ptr<Kind> kind = nullptr) : Type(name, kind) {}
+    AlgebraicType(const char *s, Ptr<Kind> kind = nullptr) : Type(name, kind) {}
+};  
 
 struct TypeForAll : Type {
     Ptr<Type> right;

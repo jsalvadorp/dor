@@ -112,7 +112,7 @@ Binding *Function::find(Sym name) {
         
 
 Ptr<Assignment> define(Ptr<Env> env, Ptr<List> body);
-void defineType(Ptr<Env> env, Ptr<List> body);
+void defineType(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs);
 Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool variable);
 Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args);
 
@@ -126,6 +126,8 @@ Ptr<Expression> cond(Ptr<Env> env, Ptr<List> args);
 
 Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args);
 Ptr<Type> typeExpression(Ptr<TypeEnv> env, Ptr<Atom> exp);
+
+void defineADT(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs);
 
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp) {
     Ptr<List> rest;
@@ -145,18 +147,27 @@ Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp) {
 }
 
 Ptr<Assignment> define(Ptr<Env> env, Ptr<List> body) {
-    assert(body != nullptr);
-    Ptr<Atom> lhs = body->head;
-    body = body->tail;
+    assert(arity_is<2>(body));
     
-    assert(body != nullptr);
-    Ptr<Atom> rhs = body->head;
-    assert(body->tail == nullptr);
+    Ptr<Atom> lhs = body->at(0), rhs = body->at(1);
     
     Ptr<List> head_rest;
     
-    if(headis(lhs, "type", head_rest)) { // type definition
-        defineType(env, head_rest);
+    if(headis(lhs, "type", head_rest)) { // type alias definition
+        // assert(env->isGlobal());
+        defineType(
+            env, 
+            head_rest->tail == nullptr ? head_rest->head : head_rest,
+            rhs
+        );
+        return nullptr;
+    } else if(headis(lhs, "data", head_rest)) { // type alias definition
+        // assert(env->isGlobal());
+        defineADT(
+            env, 
+            head_rest->tail == nullptr ? head_rest->head : head_rest,
+            rhs
+        );
         return nullptr;
     } else if(headis(lhs, "var", head_rest)) { // type definition
         return defineValue(
@@ -387,7 +398,6 @@ Ptr<Sequence> program(Ptr<Globals> env, Ptr<List> body) {
     return exp;
 }
 
-void defineType(Ptr<Env> env, Ptr<List> body) {}
 
 
 
@@ -422,6 +432,21 @@ Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args) {
     }
 }
 
+
+// define type alias
+void defineType(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs) {
+    assert(lhs->type() == SymType);
+    Sym name = lhs->get_Sym();
+    
+    Ptr<Type> type = typeExpression(env, rhs);
+    
+    assert(env->type_dictionary.find(name) == env->type_dictionary.end());
+    
+    env->type_dictionary[name] = type;
+}
+
+
+
 Sym processLhs(Ptr<Atom> lhs, Ptr<List> *&params_dest, Ptr<Atom> *type_exp, bool can_type_head) {
     if(lhs->type() == SymType) {
         return lhs->get_Sym();
@@ -449,11 +474,196 @@ Sym processLhs(Ptr<Atom> lhs, Ptr<List> *&params_dest, Ptr<Atom> *type_exp, bool
 }
 
 
+void typeQuantifiedLeft(Ptr<TypeEnv> new_env, Ptr<TypeForAll> tfa, Ptr<Atom> left) {
+    // handle the colon! for interface constraints
+    
+    if(left->type() == SymType) {
+        Sym name = left->get_Sym();
+        Ptr<TypeVar> v = newPtr<TypeVar>(name);
+        
+        assert(
+            new_env->type_dictionary.find(name) == 
+            new_env->type_dictionary.end());
+        tfa->capture(v);
+        new_env->type_dictionary[name] = v;
+    } else {
+        assert(left->type() == ListType);
+        for(Ptr<Atom> a : *asList(left)) {
+            assert(a->type() == SymType); // TODO: handle interface constraints
+            Sym name = a->get_Sym();
+            Ptr<TypeVar> v = newPtr<TypeVar>(name);
+            
+            assert(
+                new_env->type_dictionary.find(name) == 
+                new_env->type_dictionary.end());
+            tfa->capture(v);
+            new_env->type_dictionary[name] = v;
+        }
+    }
+}
+
+#if 0
+
+
+
+Ptr<TypeForAll> typeQuantified(Ptr<TypeEnv> env, Ptr<List> args) {
+    assert(arity_is<2>(args));
+    
+    Ptr<Atom> left = args->at(0), right = args->at(1);
+    
+    Ptr<TypeForAll> tfa = newPtr<TypeForAll>();
+    Ptr<TypeEnv> new_env = newPtr<TypeEnv>(env);
+    
+    typeQuantifiedLeft(new_env, tfa, left)
+    
+    tfa->right = typeExpression(new_env, right);
+    
+    return tfa;
+}
+
+#endif
+
+
+Binding *constructor(Ptr<Env> env, Ptr<Atom> con, Ptr<Type> new_type, Ptr<List> type_params) {
+    Ptr<Atom> quant_left; // any extra quantification for this constructor
+    
+    Ptr<List> con_rest;
+    if(headis(con, "=>", con_rest)) {
+        assert(arity_is<2>(con_rest));
+        // assert(!"Existentially quantified constructor not available ATM");
+        quant_left = con_rest->at(0);
+        con = con_rest->at(1);
+    }
+    
+    // quantification (in case there are type parameters or constructor 
+    // (existential) quantification)
+    
+    Ptr<TypeForAll> tfa = newPtr<TypeForAll>();
+    Ptr<TypeEnv> new_env = newPtr<TypeEnv>(env);
+    
+    if(type_params != nullptr) 
+        typeQuantifiedLeft(new_env, tfa, type_params);
+    // which variables in the quantification appear in the return type?
+    size_t parametric = tfa->bound_vars.size();
+    if(quant_left != nullptr) 
+        typeQuantifiedLeft(new_env, tfa, quant_left);
+    
+    // build the types
+    Ptr<Type> ctype = newPtr<TypeVar>(K1), ret = ctype;
+    
+    Sym name;
+    Ptr<List> params;
+    Ptr<List> *params_dest = &params;
+    Ptr<Atom> type_exp;
+    
+    name = processLhs(con, params_dest, &type_exp, true);
+    
+    if(params != nullptr) for(Ptr<Atom> a : *params) {
+        Ptr<Type> ptype;
+        Ptr<List> a_rest;
+        
+        if(headis(a, ":", a_rest)) {
+            assert(arity_is<2>(a_rest));
+            
+            // a_rest->at(0) is the argument (member) name
+            
+            ptype = typeExpression(new_env, a_rest->at(1));
+        } else {
+            ptype = typeExpression(new_env, a);
+        }
+        
+        ret = applyTypes(ret, ptype);
+    }
+    
+    shorten(ctype);
+    shorten(ret);
+    
+    if(type_exp != nullptr) { // GADT
+        Ptr<Type> rtype = typeExpression(new_env, type_exp);
+        
+        // TODO: check that rtype is a complete application of new_type
+        assert(!"GADTs not implemented");
+    } else {
+        Ptr<Type> matcher = new_type;
+        
+        for(size_t i = 0; i < parametric; i++) {
+            matcher = newPtr<TypeApp>(matcher, tfa->bound_vars[i]);
+        }
+        
+        assert(unifyTypes(ret, matcher));
+    }
+    
+    if(tfa->bound_vars.size()) {
+        tfa->right = ctype;
+        ctype = tfa;
+    }
+    
+    assert(env->isGlobal());
+    assert(env->dictionary.find(name) == env->dictionary.end());
+    Binding *new_binding = &env->dictionary[name];
+    new_binding->scope = env->isGlobal() ? GLOBAL : LOCAL;
+    new_binding->mut = CONST;
+    new_binding->name = name;
+    new_binding->type = ctype;    
+    new_binding->defined = true; 
+    new_binding->constructor = true;
+    
+    return new_binding;
+}
+
+void defineADT(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs) {
+    Sym name;
+    Ptr<List> params;
+    Ptr<List> *params_dest = &params;
+    Ptr<Atom> type_exp;
+    
+    name = processLhs(lhs, params_dest, &type_exp, false);
+    
+    assert(env->type_dictionary.find(name) == env->type_dictionary.end());
+    
+    Ptr<AlgebraicType> newt;
+    env->type_dictionary[name] = newt = 
+        newPtr<AlgebraicType>(name, params == nullptr ? K1 : nullptr); // if params, then kind is still unknown
+    
+    Ptr<List> constructors;
+    
+    if(!headis(rhs, "|", constructors))
+        constructors = newPtr<List>(rhs, nullptr);
+    
+    for(Ptr<Atom> con : *constructors) {
+        newt->constructors.push_back(constructor(env, con, newt, params));
+    }
+}
+    
+   /* 
+    // for now: declarations of the form    f (a:Int) (b:Int) :Int = ...
+    // are NOT allowed
+    assert(params == nullptr || type_exp == nullptr);
+    
+    if(lhs->type() == SymType)
+        name = lhs->get_Sym();
+    else {
+        assert(lhs->type() == ListType);
+        assert(asList(lhs)->head->type() == SymType);
+        name = asList(lhs)->head->get_Sym();
+        
+        type_params = asList(lhs)->tail;
+    }
+    
+    assert(lhs->type() == SymType);
+    Sym name = lhs->get_Sym();
+    
+    Ptr<Type> type = typeExpression(env, rhs);
+    
+    assert(env->type_dictionary.find(name) == env->type_dictionary.end());
+    
+    env->type_dictionary[name] = type;
+}*/
+
 Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool variable) {
     Sym name;
     Ptr<List> params;
     Ptr<List> *params_dest = &params;
-    
     Ptr<Atom> type_exp;
     
     name = processLhs(lhs, params_dest, &type_exp, true);
@@ -561,19 +771,7 @@ Ptr<TypeForAll> typeQuantified(Ptr<TypeEnv> env, Ptr<List> args) {
     Ptr<TypeForAll> tfa = newPtr<TypeForAll>();
     Ptr<TypeEnv> new_env = newPtr<TypeEnv>(env);
     
-    if(left->type() == SymType) {
-        Ptr<TypeVar> v = newPtr<TypeVar>(left->get_Sym());
-        tfa->capture(v);
-        new_env->type_dictionary[left->get_Sym()] = v;
-    } else {
-        assert(left->type() == ListType);
-        for(Ptr<Atom> a : *asList(left)) {
-            assert(a->type() == SymType); // TODO: handle interface constraints
-            Ptr<TypeVar> v = newPtr<TypeVar>(a->get_Sym());
-            tfa->capture(v);
-            new_env->type_dictionary[a->get_Sym()] = v;
-        }
-    }
+    typeQuantifiedLeft(new_env, tfa, left);
     
     tfa->right = typeExpression(new_env, right);
     

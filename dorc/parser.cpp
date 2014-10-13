@@ -140,7 +140,7 @@ void initInfixOps() {
         
         {"||",      {90, Left}},
         
-        {"<:",      {100, Neutral}},
+        {"<:",      {100, Neutral}}, // leeft righttt??
         {":>",      {100, Neutral}},
         
         {"|",       {110, Neutral}},
