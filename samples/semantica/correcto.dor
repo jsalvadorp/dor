@@ -93,18 +93,47 @@ type Ty = m => m Int -> Int
 
 infixr (::) 95
 
-data Person = Person String Int
-data List a = Nil | a :: (List a)
-
-juan = Person "Hola" 6
-vacia = Nil
-unodos = 1 :: 2 :: Nil
+data Person = 
+  Person
+    name :String 
+    age :Int
 
 data ContInt c = Cont (c Int)
-
-x = Cont unodos
 
 data Any = x => Any x
 
 yy = Any 6
 zz = Any "hello"
+
+# data Expr a = I Int : Expr Int | B Bool : Expr Bool
+
+  
+data List a = Nil | a :: (List a)
+
+juan = Person "Hola" 6
+vacia = Nil
+unodos = 1 :: 2 :: Nil
+x = Cont unodos
+
+fik = Person "juan"
+
+valor = 5.6 +. 8.9
+
+ultrafunc x = do
+  var n = 5
+  if (x < n)
+    do
+      var y = 2
+      x + n + y
+    do
+      var c = 2
+      var d = 6
+      x + c + d
+    
+
+#data Expr a where
+#       I   :: Int  -> Expr Int
+#       B   :: Bool -> Expr Bool
+#       Add :: Expr Int -> Expr Int -> Expr Int
+#       Mul :: Expr Int -> Expr Int -> Expr Int
+#       Eq  :: Expr Int -> Expr Int -> Expr Bool

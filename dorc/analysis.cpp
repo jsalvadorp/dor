@@ -368,12 +368,15 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
     assert(unifyTypes(func->body->type, ret));
     assert(unifyTypes(func->type, ftype));
     
+    func->assignIds();
+    
     return func;
 }
 
 Ptr<Sequence> sequence(Ptr<Env> env, Ptr<List> body) {
     assert(arity_is_min<1>(body));
     Ptr<Sequence> exp = newPtr<Sequence>(env);
+    size_t unwind = env->getLocalsSize();
     
     for(Ptr<Atom> a : *body) {
         exp->steps.push_back(expression(exp->locals, a));
@@ -381,6 +384,8 @@ Ptr<Sequence> sequence(Ptr<Env> env, Ptr<List> body) {
     
     //assert(unifyTypes(exp->steps.back()->type, exp->type));
     exp->type = exp->steps.back()->type;
+    
+    env->setLocalsSize(unwind);
     
     return exp;
 }
@@ -400,37 +405,6 @@ Ptr<Sequence> program(Ptr<Globals> env, Ptr<List> body) {
 
 
 
-
-Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args) {
-    assert(arity_is<2>(args));
-    
-    Ptr<Type> type = typeExpression(env, args->at(1));
-    
-    Binding *b;
-    if(args->head->type() == SymType) {
-        if((b = env->find(args->head->get_Sym()))) {
-            //assert(!"tried to redeclare a value");
-            assert(unifyTypes(b->type, type));
-            return reference(env, args->head);
-        } else {
-            // new value!
-            b = &env->dictionary[args->head->get_Sym()];
-            b->scope = env->isGlobal() ? GLOBAL : LOCAL;
-            b->name = args->head->get_Sym();
-            b->defined = false;
-           
-            /*if(b->type == nullptr)*/ b->type = type;
-            /*else assert(unifyTypes(b->type, type));*/
-            
-            /*if(b->defined)*/ return newPtr<Reference>(b);
-            /*else */return nullptr;
-        }
-    } else {
-        Ptr<Expression> exp = expression(env, args->head);
-        assert(unifyTypes(exp->type, type));
-        return exp;
-    }
-}
 
 
 // define type alias
@@ -524,8 +498,12 @@ Ptr<TypeForAll> typeQuantified(Ptr<TypeEnv> env, Ptr<List> args) {
 #endif
 
 
-Binding *constructor(Ptr<Env> env, Ptr<Atom> con, Ptr<Type> new_type, Ptr<List> type_params) {
+Binding *constructor(Ptr<Env> env, Ptr<Atom> con, 
+    Ptr<Type> new_type, Ptr<List> type_params, int &arity) {
     Ptr<Atom> quant_left; // any extra quantification for this constructor
+    
+    
+    arity = 0;
     
     Ptr<List> con_rest;
     if(headis(con, "=>", con_rest)) {
@@ -572,6 +550,8 @@ Binding *constructor(Ptr<Env> env, Ptr<Atom> con, Ptr<Type> new_type, Ptr<List> 
             ptype = typeExpression(new_env, a);
         }
         
+        arity++;
+        
         ret = applyTypes(ret, ptype);
     }
     
@@ -608,6 +588,16 @@ Binding *constructor(Ptr<Env> env, Ptr<Atom> con, Ptr<Type> new_type, Ptr<List> 
     new_binding->defined = true; 
     new_binding->constructor = true;
     
+    if(new_binding->scope == LOCAL) {
+        new_binding->id = env->getLocalsSize();
+        env->setLocalsSize(new_binding->id + 1);
+    } else if(new_binding->scope == GLOBAL) {
+        Ptr<Globals> g = castPtr<Globals, Env>(env);
+        new_binding->id = g->globals.size();
+        g->globals.push_back(new_binding);
+        
+    }
+    
     return new_binding;
 }
 
@@ -630,8 +620,17 @@ void defineADT(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs) {
     if(!headis(rhs, "|", constructors))
         constructors = newPtr<List>(rhs, nullptr);
     
+    i64 c = 0; // nullary constructor index
     for(Ptr<Atom> con : *constructors) {
-        newt->constructors.push_back(constructor(env, con, newt, params));
+        int arity;
+        Binding *b = constructor(env, con, newt, params, arity);
+        if(arity)
+            newt->nary_constructors.push_back(b);
+        else {
+            newt->nullary_constructors.push_back(b);
+        }
+        b->value = arity ? nullptr : newPtr<Literal>(atom(c++), Int);
+        b->isconstexpr = true;
     }
 }
     
@@ -660,6 +659,54 @@ void defineADT(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs) {
     env->type_dictionary[name] = type;
 }*/
 
+
+
+Ptr<Expression> declareValue(Ptr<Env> env, Ptr<List> args) {
+    assert(arity_is<2>(args));
+    
+    Ptr<Type> type = typeExpression(env, args->at(1));
+    
+    Binding *b;
+    if(args->head->type() == SymType) {
+        if((b = env->find(args->head->get_Sym()))) {
+            if(env->isGlobal()) assert(!"tried to redeclare a value");
+            assert(unifyTypes(b->type, type));
+            return env->isGlobal() ? nullptr : reference(env, args->head);
+        } else {
+            // new value!
+            b = &env->dictionary[args->head->get_Sym()];
+            b->scope = env->isGlobal() ? GLOBAL : LOCAL;
+            b->name = args->head->get_Sym();
+            b->defined = false;
+            
+            if(b->scope == LOCAL) {
+                b->id = env->getLocalsSize();
+                env->setLocalsSize(b->id + 1);
+            } else if(b->scope == GLOBAL) {
+                Ptr<Globals> g = castPtr<Globals, Env>(env);
+                b->id = g->globals.size();
+                g->globals.push_back(b);
+                
+            }
+            
+            /*if(b->scope == LOCAL) {
+                b->id = b->getLocalsSize();
+                b->setLocalsSize(b->id + 1);
+            }*/
+           
+            /*if(b->type == nullptr)*/ b->type = type;
+            /*else assert(unifyTypes(b->type, type));*/
+            
+            /*if(b->defined)*/ // return newPtr<Reference>(b);
+            /*else */return nullptr;
+        }
+    } else {
+        Ptr<Expression> exp = expression(env, args->head);
+        assert(unifyTypes(exp->type, type));
+        return exp;
+    }
+}
+
 Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool variable) {
     Sym name;
     Ptr<List> params;
@@ -684,6 +731,18 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
     new_binding->scope = env->isGlobal() ? GLOBAL : LOCAL;
     new_binding->mut = variable ? VAR : CONST;
     new_binding->name = name;
+    
+    if(new_binding->id == -1) { // undeclared
+        if(new_binding->scope == LOCAL) {
+            new_binding->id = env->getLocalsSize();
+            env->setLocalsSize(new_binding->id + 1);
+        } else if(new_binding->scope == GLOBAL) {
+            Ptr<Globals> g = castPtr<Globals, Env>(env);
+            new_binding->id = g->globals.size();
+            g->globals.push_back(new_binding);
+            
+        }
+    }
     
     // had_a_type means user provided a complete type without free variables
     had_a_type = new_binding->type != nullptr;
@@ -735,10 +794,17 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
         } else new_binding->type = exp->type;
     }
     
+    if(env->isGlobal() && isConstExpr(exp)) {
+        new_binding->value = exp;
+        new_binding->isconstexpr = true;
+    }
+    
     Ptr<Reference> lref = newPtr<Reference>(new_binding);
     // unification already happened so the following must be ok
     Ptr<Assignment> ass = newPtr<Assignment>(lref, exp);
-    return ass;
+    if(!env->isGlobal() || !new_binding->isconstexpr)
+        return ass;
+    else return nullptr;
 }
 
 Ptr<TypeForAll> typeQuantified(Ptr<TypeEnv> env, Ptr<List> args);
@@ -792,29 +858,79 @@ Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args) {
     return app;
 } 
 
+
 void initExtern(Ptr<Globals> g, Sym name, Ptr<Type> type) {
+    assert(g->dictionary.find(name) == g->dictionary.end());
     Binding *new_binding = &g->dictionary[name];
     new_binding->scope = EXTERN;
     new_binding->mut = CONST;
     new_binding->name = name;
     new_binding->defined = false;
     new_binding->type = type;
+    
+    g->externs.push_back(new_binding);
+}
+ 
+
+std::unordered_set<Sym> builtins;
+
+void initBuiltin(Ptr<Globals> g, Sym name, Ptr<Type> type) {
+    builtins.insert(name);
+    initExtern(g, name, type);
 }
 
 void initGlobals(Ptr<Globals> g) {
     Ptr<Type> 
         intIntInt = funcType(Int, funcType(Int, Int)),
+        floatFloatFloat = funcType(Float, funcType(Float, Float)),
         intIntBool = funcType(Int, funcType(Int, Bool));
         
-    initExtern(g, Sym("+"), intIntInt);
-    initExtern(g, Sym("-"), intIntInt);
-    initExtern(g, Sym("*"), intIntInt);
-    initExtern(g, Sym("/"), intIntInt);
-    initExtern(g, Sym("%"), intIntInt);
-    initExtern(g, Sym("<"), intIntBool);
-    initExtern(g, Sym(">"), intIntBool);
-    initExtern(g, Sym("<="), intIntBool);
-    initExtern(g, Sym(">="), intIntBool);
-    initExtern(g, Sym("=="), intIntBool);
-    initExtern(g, Sym("!="), intIntBool);
+    initBuiltin(g, Sym("+"), intIntInt);
+    initBuiltin(g, Sym("-"), intIntInt);
+    initBuiltin(g, Sym("*"), intIntInt);
+    initBuiltin(g, Sym("/"), intIntInt);
+    initBuiltin(g, Sym("%"), intIntInt);
+    
+    
+    initBuiltin(g, Sym("+."), floatFloatFloat);
+    initBuiltin(g, Sym("-."), floatFloatFloat);
+    initBuiltin(g, Sym("*."), floatFloatFloat);
+    initBuiltin(g, Sym("/."), floatFloatFloat);
+    
+    initBuiltin(g, Sym("<"), intIntBool);
+    initBuiltin(g, Sym(">"), intIntBool);
+    initBuiltin(g, Sym("<="), intIntBool);
+    initBuiltin(g, Sym(">="), intIntBool);
+    initBuiltin(g, Sym("=="), intIntBool);
+    initBuiltin(g, Sym("!="), intIntBool);
+    
+    initBuiltin(g, Sym("<."), intIntBool);
+    initBuiltin(g, Sym(">."), intIntBool);
+    initBuiltin(g, Sym("<=."), intIntBool);
+    initBuiltin(g, Sym(">=."), intIntBool);
+    initBuiltin(g, Sym("==."), intIntBool);
+    initBuiltin(g, Sym("!=."), intIntBool);
+}
+
+
+void Globals::assignIds() {
+    size_t id = 0;
+    
+    for(Binding *b : externs) {
+        b->id = id++;
+    }
+    
+    std::cout << "Extern count is " << id << std::endl;
+    
+    // globals currently have ids from 0 to n, displace them by 
+    // extern count
+    for(Binding *b : globals) {
+        assert(b->id + externs.size() == id);
+        b->id = id++;
+        
+        
+        if(Ptr<Function> f = castPtr<Function, Expression>(b->value)) {
+            f->id = b->id;
+        }
+    }
 }

@@ -6,8 +6,8 @@
 #include <iostream>
 #include <stack>
 #include <queue>
-#include "tokens.hpp"
-#include "ast.hpp"
+#include "../dorc/tokens.hpp"
+#include "../dorc/ast.hpp"
 
 extern "C" token_t yylex();
 

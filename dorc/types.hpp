@@ -96,7 +96,8 @@ inline Ptr<Type> &shorten(Ptr<Type> &t) {
 }
 
 struct AlgebraicType : Type {
-    std::vector<Binding *> constructors;
+    std::vector<Binding *> nullary_constructors;
+    std::vector<Binding *> nary_constructors;
     
     AlgebraicType(Ptr<Kind> kind = nullptr) : Type(kind) {}
     AlgebraicType(Sym name, Ptr<Kind> kind = nullptr) : Type(name, kind) {}

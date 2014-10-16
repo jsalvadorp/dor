@@ -1,0 +1,22 @@
+f x = x
+
+fac n = 
+  if (n == 0) 
+    1
+    n * fac (n - 1)
+
+fib n =
+  cond
+    n == 0 => 1
+    n == 1 => 1
+    else   => fib (n - 1) + fib (n - 2)
+    
+x = fac 5
+
+(f <: g) x = f (g x)
+(g :> f) x = f (g x)
+
+data Option a = None | Some a
+
+n = 7
+

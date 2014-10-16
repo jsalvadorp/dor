@@ -43,14 +43,19 @@ struct Binding {
     Sym qualified_name;
     
     Ptr<Expression> value;
-    Ptr<Binding> parent;
+    Binding *parent;
     
     bool defined;
     bool constructor;
+    bool isconstexpr;
     
     int id;
     
-    Binding() {}
+    Binding() 
+        : id(-1)
+        , defined(false)
+        , constructor(false)
+        , isconstexpr(false) {}
     Binding(const Binding &b)
         : scope(b.scope)
         , parent(b.parent)
@@ -59,7 +64,9 @@ struct Binding {
         , qualified_name(b.qualified_name)
         , defined(b.defined)
         , value(b.value)
-        , constructor(false) {}
+        , constructor(false)
+        , isconstexpr(false)
+        , id(-1) {}
     Binding(Binding &parent, scope_t scope) 
         : scope(scope)
         , parent(&parent)
@@ -68,7 +75,9 @@ struct Binding {
         , defined(parent.defined)
         , qualified_name(parent.qualified_name)
         , value(parent.value)
-        , constructor(false) {}
+        , constructor(false)
+        , isconstexpr(false)
+        , id(-1) {}
         
     
 };
@@ -82,16 +91,49 @@ struct Env : TypeEnv {
     Env(Ptr<Env> parent = nullptr) : parent(parent), TypeEnv(parent) {}
     
     virtual bool isGlobal() {return false;}
+    
+    virtual void setLocalsSize(size_t size) {
+        assert(parent != nullptr && !isGlobal());
+        parent->setLocalsSize(size);
+    }
+    virtual size_t getLocalsSize() {
+        assert(parent != nullptr && !isGlobal());
+        return parent->getLocalsSize();
+    }
 };
 
 struct Globals : Env {
     std::vector<Binding *> externs; 
+    std::vector<Binding *> globals; 
     
     Globals() : Env() {}
     // handle externs
     virtual Binding *find(Sym name);
     
     virtual bool isGlobal() {return true;}
+    
+    void assignIds();
+};
+
+
+struct Function;
+struct Literal;
+struct Reference;
+struct Conditional;
+struct Sequence;
+struct Application;
+struct Assignment;
+struct Match;
+
+struct ExpressionVisitor {
+    virtual void visit(Function &) = 0;
+    virtual void visit(Literal &) = 0;
+    virtual void visit(Reference &) = 0;
+    virtual void visit(Conditional &) = 0;
+    virtual void visit(Sequence &) = 0;
+    virtual void visit(Application &) = 0;
+    virtual void visit(Assignment &) = 0;
+    virtual void visit(Match &) = 0;
 };
 
 struct Expression {
@@ -101,17 +143,24 @@ struct Expression {
     Expression(int line = -1, int column = -1) 
         : line(line), column(column), type(newPtr<TypeVar>(K1)) {}
     
-     virtual void dump(int level) = 0;
+    virtual void dump(int level) = 0;
+    virtual void accept(ExpressionVisitor &v) = 0;
 };
 
 struct Function : Expression, Env {
     std::vector<Binding *> closure;
     std::vector<Binding *> parameters; 
-    virtual Binding *find(Sym name);
     
     Ptr<Expression> body;
+    size_t locals_size;
+    size_t max_locals;
     
-    Function(Ptr<Env> parent) : Env(parent) {} 
+    int id;
+    
+    virtual Binding *find(Sym name);
+    
+    Function(Ptr<Env> parent) : 
+        Env(parent), locals_size(0), max_locals(0), id(-1) {} 
     
     virtual void dump(int level) {
         ast::print_indent(level);
@@ -133,7 +182,34 @@ struct Function : Expression, Env {
         }
         std::cout << std::endl;
         
+        ast::print_indent(level + 1);
+        std::cout << "LOCALS " << max_locals << std::endl;
+        
         body->dump(level + 1);
+    }
+    
+    void assignIds() {
+        size_t id = 0;
+        
+        for(Binding *b : closure) {
+            b->id = id++;
+        }
+        
+        for(Binding *b : parameters) {
+            b->id = id++;
+        }
+    }
+    
+    virtual void setLocalsSize(size_t size) {
+        locals_size = size;
+        max_locals = std::max(max_locals, locals_size);
+    }
+    virtual size_t getLocalsSize() {
+        return locals_size;
+    }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
     }
 };
 
@@ -151,6 +227,10 @@ struct Literal : Expression {
         std::cout << " : ";
         type->dump();
         std::cout << std::endl;
+    }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
     }
 };
 
@@ -177,6 +257,10 @@ struct Reference : Expression { // lvalue/rvalue distinciton!!!
         binding->type->dump();
         std::cout << std::endl;
     }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
 };
 
 struct Application : Expression {
@@ -197,6 +281,10 @@ struct Application : Expression {
         
         left->dump(level + 1);
         right->dump(level + 1);
+    }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
     }
 };
 
@@ -223,6 +311,10 @@ struct Assignment : Expression {
         lhs->dump(level + 1);
         rhs->dump(level + 1);
     }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
 };
 
 struct Conditional : Expression {
@@ -245,7 +337,11 @@ struct Conditional : Expression {
         on_true->dump(level + 1);
         on_false->dump(level + 1);
     }
-};
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
+}; 
 
 struct Sequence : Expression {
     Ptr<Env> locals;
@@ -262,20 +358,45 @@ struct Sequence : Expression {
             exp->dump(level + 1);
         }
     }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
 };
 
 struct MatchClause {
     Ptr<Env> env;
     Ptr<Expression> pattern, condition, body;
+    
+    MatchClause (Ptr<Env> parent) {
+        
+    }
 };
 
 struct Match : Expression {
+    Ptr<Expression> exp;
     std::vector<MatchClause> clauses;
     
     void dump(int level) {}
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
 };
 
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp);
 Ptr<Sequence> program(Ptr<Globals> env, Ptr<List> body);
 
 void initGlobals(Ptr<Globals> g);
+
+extern std::unordered_set<Sym> builtins;
+
+inline bool isConstExpr(Ptr<Expression> expr) {
+    if(Ptr<Literal> lit = castPtr<Literal, Expression>(expr)) {
+        return true;
+    } else if(Ptr<Function> fun = castPtr<Function, Expression>(expr)) {
+        return fun->closure.size() == 0;
+    }
+    
+    return false;
+}

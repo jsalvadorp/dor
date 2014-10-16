@@ -85,13 +85,13 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
         assert(!y->contains(castPtr<TypeVar, Type>(x))); // occurs check
         
         // y is a bound var
-        if(y->type() == TVAR && y->getRank() == RANK_INF) {
+        /*if(y->type() == TVAR && y->getRank() == RANK_INF) {
             std::cout << "unifying var ";
             x->dump();
             std::cout << " with bound var ";
             y->dump();
             std::cout << std::endl;
-        }
+        }*/
         
         x->setParent(y);
         x = y;
