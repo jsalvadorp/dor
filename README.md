@@ -1,18 +1,25 @@
 # Dor
 Dor es un lenguaje funcional, estrictamente tipado.
 
-Por el momento tiene un type-checker basico.
+Por el momento tiene un type-checker con inferencia de tipos: soporta polimorfismo parametrico (sin constraints/interfaces), definicion de tipos algebraicos.
+
+Tambien tiene un generador de codigo basico, capaz de generar codigo para estatutos condicionales, llamadas y expresiones aritmeticas. 
 
 ## Instrucciones
 Compilacion
 
+Para compilar (solo los cpp que han cambiado), se usa
+
     make
+    
+Para remover binarios y archivos objeto,
+    make clean
 
 Ejecucion
 
-    ./bin/dorc <samples/analysis.dor
+    ./bin/dorc <samples/semantica/correcto.dor 
 
-La salida es un "dump" del arbol semantico generado.
+La salida es un "dump" del arbol semantico generado y del codigo binario.
 
 ## TODO
 
@@ -20,6 +27,3 @@ La salida es un "dump" del arbol semantico generado.
 
 * Reemplazar los asserts por una forma mas robusta de fallar y reportar errores.
 
-## Trabajando en
-
-Por el momento se esta escribiendo el analizador semantico, que convierte el arbol de sintaxis en uno anotado que se pueda compilar y checar en tipado. Se tiene una version algo cruda de la inferencia de tipos; falta que se puedan cuantificar las variables de tipos. Una vez hecho eso, implementar polimorfismo parametrico sera muy sencillo
