@@ -106,13 +106,13 @@ yy = Any 6
 zz = Any "hello"
 
 # data Expr a = I Int : Expr Int | B Bool : Expr Bool
-
+	
   
 data List a = Nil | a :: (List a)
 
 juan = Person "Hola" 6
 vacia = Nil
-unodos = 1 :: 2 :: Nil
+unodos = 1 :: 5:: Nil
 x = Cont unodos
 
 fik = Person "juan"

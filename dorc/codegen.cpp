@@ -27,6 +27,7 @@ enum GlobalType {
     ProcGlobal
 };
 
+    
 
 struct Global {
     virtual GlobalType type() = 0;

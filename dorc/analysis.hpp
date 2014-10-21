@@ -364,18 +364,19 @@ struct Sequence : Expression {
     }
 };
 
-struct MatchClause {
-    Ptr<Env> env;
+struct MatchClause : Env {
     Ptr<Expression> pattern, condition, body;
     
-    MatchClause (Ptr<Env> parent) {
+    virtual Binding *find(Sym name);
+    
+    MatchClause (Ptr<Env> parent) : Env(parent) {
         
     }
 };
 
 struct Match : Expression {
     Ptr<Expression> exp;
-    std::vector<MatchClause> clauses;
+    std::vector<Ptr<MatchClause> > clauses;
     
     void dump(int level) {}
     

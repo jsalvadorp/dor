@@ -104,6 +104,35 @@ Binding *Function::find(Sym name) {
     return nullptr;
 }
 
+
+Binding *MatchClause::find(Sym name) {
+    Ptr<Env> e = parent;
+
+    while(e->parent != nullptr) {
+        e = e->parent;
+    }
+
+    assert(e->isGlobal()); 
+
+    if(Binding *b = e->find(name)) { // global or extern binding
+        if(b->mut == CONST) // constant!
+            return b; // match
+    }
+
+    assert(dictionary.find(name) == dictionary.end());
+    
+    Binding *new_binding = &dictionary[name];
+    new_binding->mut = VAR;
+    new_binding->scope = LOCAL;
+    new_binding->name = name;
+    new_binding->defined = true;
+    
+    new_binding->id = getLocalsSize();
+    setLocalsSize(new_binding->id + 1);
+    
+    return new_binding;
+}
+
 #define headis(a, s, rest) \
     ((a)->type() == ListType \
         && asList(a)->head->type() == SymType \
@@ -858,6 +887,17 @@ Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args) {
     return app;
 } 
 
+Ptr<Match> match(Ptr<Env> env, Ptr<List> args) {
+    assert(arity_is<2>(args));
+    Ptr<Match> m = newPtr<Match>();
+    m->exp = expression(env, args->at(0));
+
+    for(Ptr<Atom> a : *args) {
+       //  m->clauses.push_back
+    }
+
+    return m;
+}
 
 void initExtern(Ptr<Globals> g, Sym name, Ptr<Type> type) {
     assert(g->dictionary.find(name) == g->dictionary.end());

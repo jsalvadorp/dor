@@ -1,4 +1,7 @@
-f x = x
+id x = x
+
+ff a b = b
+
 
 fac n = 
   if (n == 0) 
@@ -16,7 +19,9 @@ x = fac 5
 (f <: g) x = f (g x)
 (g :> f) x = f (g x)
 
+infixr (::) 95
+data List a = Nil | a :: (List a)
 data Option a = None | Some a
 
-n = 7
+n = 7 # kekekeklklkwlekwlkelwkelwlelwle ii lj lj lj lisd sd  sd  
 

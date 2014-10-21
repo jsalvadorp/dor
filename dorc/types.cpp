@@ -47,7 +47,7 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
     //x = x->getRoot(), y = y->getRoot();
     shorten(x);
     shorten(y);
-    
+         
     // x debe ser de menor rango que y!!!!!!!!!!
     if(y->getRank() < x->getRank())
         return unifyTypes(y, x);
