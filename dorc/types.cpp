@@ -33,7 +33,9 @@ TypeApp::TypeApp(Ptr<Type> left, Ptr<Type> right) : Type(), left(left), right(ri
 
 Ptr<Type> applyTypes(Ptr<Type> &left, Ptr<Type> &right) {
     Ptr<Type> application = funcType(right, newPtr<TypeVar>(K1));
-    assert(unifyTypes(application, left));
+    //assert(unifyTypes(application, left));
+    assert(unifyTypes(left, application));
+
     return funcTypeTo(application);
 }
 
@@ -44,6 +46,13 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
     */
     assert(x != nullptr && y != nullptr);
     
+    std::cout << "unifying type  (";
+    x->dump();
+    //std::cout << std::endl;
+    std::cout << ") with (";
+    y->dump();
+    std::cout << ")" << std::endl;
+
     //x = x->getRoot(), y = y->getRoot();
     shorten(x);
     shorten(y);

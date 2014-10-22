@@ -270,6 +270,7 @@ struct Application : Expression {
         : left(left), right(right) {
         assert(this->left!=nullptr);
         assert(this->right!=nullptr);
+        //type = newPtr<TypeVar>(K1);
         type = applyTypes(left->type, right->type);
     }
     
@@ -366,10 +367,11 @@ struct Sequence : Expression {
 
 struct MatchClause : Env {
     Ptr<Expression> pattern, condition, body;
+    bool is_pattern;
     
     virtual Binding *find(Sym name);
     
-    MatchClause (Ptr<Env> parent) : Env(parent) {
+    MatchClause (Ptr<Env> parent) : Env(parent), is_pattern(false) {
         
     }
 };
@@ -378,11 +380,40 @@ struct Match : Expression {
     Ptr<Expression> exp;
     std::vector<Ptr<MatchClause> > clauses;
     
-    void dump(int level) {}
+    // void dump(int level) {}
     
     virtual void accept(ExpressionVisitor &v) {
         v.visit(*this);
     }
+    
+    virtual void dump(int level) {
+        ast::print_indent(level);
+        std::cout << "MATCH : ";
+        type->dump();
+        std::cout << std::endl;
+        
+        ast::print_indent(level + 1);
+        std::cout << "EXP " << std::endl;
+        exp->dump(level + 1);
+        // std::cout << std::endl;
+
+        for(Ptr<MatchClause> mc : clauses) {
+            ast::print_indent(level + 1);
+            std::cout << "PATTERN " << std::endl;
+            if(mc->pattern != nullptr) mc->pattern->dump(level + 2);
+            else {
+                ast::print_indent(level + 2);
+                std::cout << "ELSE" << std::endl;
+            }
+            ast::print_indent(level + 1);
+            std::cout << "BODY " << std::endl;
+            mc->body->dump(level + 2);
+            // std::cout << std::endl;
+
+        }
+        
+    }
+
 };
 
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp);

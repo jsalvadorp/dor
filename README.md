@@ -17,7 +17,7 @@ Para remover binarios y archivos objeto,
 
 Ejecucion
 
-    ./bin/dorc <samples/semantica/correcto.dor 
+    ./bin/dorc <samples/semantica/simple.dor 
 
 La salida es un "dump" del arbol semantico generado y del codigo binario.
 

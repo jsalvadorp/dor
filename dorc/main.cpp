@@ -14,7 +14,8 @@ int main() {
 	
 	Ptr<List> tree = asList(parser::parseGroup(true));
     
-    //tree->dump(0);
+    std::cout << "Syntax Tree Dump-----------------------" << std::endl;
+    tree->dump(0);
     
     Ptr<Globals> globals = newPtr<Globals>();
     initTypes(globals);
@@ -34,7 +35,9 @@ int main() {
         } else if(b->isconstexpr) {
             assert(b->defined);
             
-            std::cout << b->name.str() << "{" << b->id << "} = " << std::endl;
+            std::cout << b->name.str() << "{" << b->id << "} : ";
+            b->type->dump(); 
+            std::cout << " = " << std::endl;
             b->value->dump(1);
         }
     }

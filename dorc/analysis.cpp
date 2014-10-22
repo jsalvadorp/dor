@@ -106,31 +106,46 @@ Binding *Function::find(Sym name) {
 
 
 Binding *MatchClause::find(Sym name) {
-    Ptr<Env> e = parent;
+    if(is_pattern) {
+        Ptr<Env> e = parent;
 
-    while(e->parent != nullptr) {
-        e = e->parent;
+        while(e->parent != nullptr) {
+            e = e->parent;
+        }
+
+        assert(e->isGlobal()); 
+
+        if(Binding *b = e->find(name)) { // global or extern binding
+            
+            if(b->mut == CONST) { // constant!
+                return b; // match
+            }
+        }
+
+        assert(dictionary.find(name) == dictionary.end());
+        
+        Binding *new_binding = &dictionary[name];
+        new_binding->mut = VAR;
+        new_binding->scope = LOCAL;
+        new_binding->name = name;
+        new_binding->defined = true;
+        new_binding->type = newPtr<TypeVar>(K1); 
+        new_binding->id = getLocalsSize();
+        setLocalsSize(new_binding->id + 1);
+        
+        return new_binding;
+    } else {
+        auto it = dictionary.find(name);
+        Binding *b;
+        
+        if(it != dictionary.end()) return &it->second;
+        else if(parent && (b = parent->find(name))) {
+            return b;
+        }
+        
+        return nullptr;
+
     }
-
-    assert(e->isGlobal()); 
-
-    if(Binding *b = e->find(name)) { // global or extern binding
-        if(b->mut == CONST) // constant!
-            return b; // match
-    }
-
-    assert(dictionary.find(name) == dictionary.end());
-    
-    Binding *new_binding = &dictionary[name];
-    new_binding->mut = VAR;
-    new_binding->scope = LOCAL;
-    new_binding->name = name;
-    new_binding->defined = true;
-    
-    new_binding->id = getLocalsSize();
-    setLocalsSize(new_binding->id + 1);
-    
-    return new_binding;
 }
 
 #define headis(a, s, rest) \
@@ -157,6 +172,7 @@ Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args);
 Ptr<Type> typeExpression(Ptr<TypeEnv> env, Ptr<Atom> exp);
 
 void defineADT(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs);
+Ptr<Match> match(Ptr<Env> env, Ptr<List> args);
 
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp) {
     Ptr<List> rest;
@@ -259,6 +275,8 @@ Ptr<Expression> expression(Ptr<Env> env, Ptr<Atom> a, Binding *binding) {
             return if_(env, a_rest);
         } else if(headis(a, "cond", a_rest)) {
             return cond(env, a_rest);
+        } else if(headis(a, "match", a_rest)) {
+            return match(env, a_rest);
         } else if(headis(a, "=", a_rest)) {
             return define(env, a_rest);
         } else {
@@ -386,6 +404,7 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
             assert(ret->type() != TFORALL); // NO foralls on the right
             
             binding.type = newPtr<TypeVar>(K1);
+            //binding.type = newPtr<TypeVar>(Sym(name.str() + "_tv"), K1);
             ret = applyTypes(ret, binding.type);
         }
         
@@ -394,8 +413,8 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
     }
     
     func->body = expression(func, body);
-    assert(unifyTypes(func->body->type, ret));
     assert(unifyTypes(func->type, ftype));
+    assert(unifyTypes(func->body->type, ret));
     
     func->assignIds();
     
@@ -776,7 +795,7 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
     // had_a_type means user provided a complete type without free variables
     had_a_type = new_binding->type != nullptr;
     if(!had_a_type) // else give it a typevar so recursion can aid us in finding a type
-        new_binding->type = newPtr<TypeVar>(K1);
+        new_binding->type = newPtr<TypeVar>(K1);// newPtr<TypeVar>(Sym(name.str() + "_tv"), K1);
         
         
     new_binding->defined = true; 
@@ -815,12 +834,18 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
         exp = params != nullptr 
                 ? function(env, list({params, rhs}))
                 : expression(env, rhs, new_binding);  
+       
+        // necessary for some recursions
+        assert(unifyTypes(new_binding->type, exp->type));
                           
         Ptr<TypeForAll> q = newPtr<TypeForAll>();
         q->init(exp->type);
+
         if(!q->bound_vars.empty()) { // any free variables captured??
             new_binding->type = q; 
-        } else new_binding->type = exp->type;
+        } else {
+            new_binding->type = exp->type; // unnecessary
+        }
     }
     
     if(env->isGlobal() && isConstExpr(exp)) {
@@ -888,12 +913,35 @@ Ptr<TypeApp> typeApplication(Ptr<TypeEnv> env, Ptr<List> args) {
 } 
 
 Ptr<Match> match(Ptr<Env> env, Ptr<List> args) {
-    assert(arity_is<2>(args));
+    assert(arity_is_min<1>(args));
     Ptr<Match> m = newPtr<Match>();
     m->exp = expression(env, args->at(0));
+    m->type = newPtr<TypeVar>(K1);
 
-    for(Ptr<Atom> a : *args) {
-       //  m->clauses.push_back
+    for(Ptr<Atom> a : *args->tail) {
+        Ptr<List> a_rest;
+        if(!headis(a, "=>", a_rest))
+            assert(!"Bad match clause");
+        assert(arity_is<2>(a_rest));
+
+        Ptr<Atom> p = a_rest->at(0), b = a_rest->at(1);
+
+        Ptr<MatchClause> mc = newPtr<MatchClause>(env);
+        
+        if(p->type() == SymType && p->get_Sym() == "else") {
+           mc->pattern = nullptr; 
+        } else {
+            mc->is_pattern = true;
+            mc->pattern = expression(mc, p);
+        }
+        
+        mc->is_pattern = false;
+        mc->body = expression(mc, b);
+
+        if(mc->pattern != nullptr) assert(unifyTypes(m->exp->type, mc->pattern->type));
+        assert(unifyTypes(m->type, mc->body->type));
+        
+        m->clauses.push_back(mc);
     }
 
     return m;

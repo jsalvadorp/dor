@@ -1,7 +1,9 @@
 id x = x
 
-ff a b = b
+flip f x y = f y x
 
+(f <: g) x = f (g x)
+(g :> f) x = f (g x)
 
 fac n = 
   if (n == 0) 
@@ -14,14 +16,33 @@ fib n =
     n == 1 => 1
     else   => fib (n - 1) + fib (n - 2)
     
-x = fac 5
-
-(f <: g) x = f (g x)
-(g :> f) x = f (g x)
-
 infixr (::) 95
 data List a = Nil | a :: (List a)
 data Option a = None | Some a
 
-n = 7 # kekekeklklkwlekwlkelwkelwlelwle ii lj lj lj lisd sd  sd  
+foldr f v l =
+  match l
+    Nil     => v
+    x :: xs => f x (foldr f v xs)
 
+foldl f v l =
+  match l
+    Nil     => v
+    x :: xs => foldl f (f v x) xs
+
+map f = foldr ((::) <: f) Nil
+
+reverse = foldl (flip (::)) Nil
+
+empty l = match l
+  Nil => True
+  else => False
+
+length l =
+  match l
+    Nil     => 0
+    _ :: xs => 1 + length xs
+
+even x = x % 2 == 0
+lista = 1 :: 2 :: 3 :: 4 :: Nil
+lista_e = map even lista

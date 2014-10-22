@@ -1,0 +1,14 @@
+
+# infixr (::) 95
+# 
+# data List a = Nil | a :: (List a)
+# 
+# foldl f z l =
+#   match l
+#     Nil     => z
+#     x :: xs => foldl f (f z x) xs
+
+# sum = foldl (x y -> x + y) 0 
+
+func f v x = func f (f v x) x + 4
+
