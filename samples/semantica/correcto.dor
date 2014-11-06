@@ -129,7 +129,19 @@ ultrafunc x = do
       var c = 2
       var d = 6
       x + c + d
-    
+
+calcula x = do
+  var i1 = 1
+  var i2 = 1
+
+  while (i2 < 1000)
+    var x = i1
+    i1 := i2
+    i2 := x + i2
+    i1 + i2
+
+  i2
+
 
 #data Expr a where
 #       I   :: Int  -> Expr Int

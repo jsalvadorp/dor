@@ -36,7 +36,7 @@ reverse = foldl (flip (::)) Nil
 
 empty l = match l
   Nil => True
-  else => False
+  _ => False
 
 length l =
   match l
@@ -46,3 +46,16 @@ length l =
 even x = x % 2 == 0
 lista = 1 :: 2 :: 3 :: 4 :: Nil
 lista_e = map even lista
+
+
+# zip f l r =
+#   match (l, r)
+#     (Nil, _) =>
+#       Nil
+#     (_, Nil) =>
+#       Nil
+#     (lx :: lxs, rx :: rxs) =>
+#       f lx rx :: zip f lxs rxs
+# 
+# cprod = zip (,)
+

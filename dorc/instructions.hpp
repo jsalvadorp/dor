@@ -128,6 +128,7 @@ namespace instructions {
     
     // special
     DEFINE_INSTRUCTION(sys,     0x90,  1,  0,    -1, -1);
+    DEFINE_INSTRUCTION(fail,    0x91,  0,  0,    0,  0);
 
     
     template<size_t N = 255>

@@ -124,6 +124,8 @@ struct Sequence;
 struct Application;
 struct Assignment;
 struct Match;
+struct While;
+struct Mutation;
 
 struct ExpressionVisitor {
     virtual void visit(Function &) = 0;
@@ -134,6 +136,8 @@ struct ExpressionVisitor {
     virtual void visit(Application &) = 0;
     virtual void visit(Assignment &) = 0;
     virtual void visit(Match &) = 0;
+    virtual void visit(While &) = 0;
+    virtual void visit(Mutation &) = 0;
 };
 
 struct Expression {
@@ -252,6 +256,8 @@ struct Reference : Expression { // lvalue/rvalue distinciton!!!
         case GLOBAL: std::cout << "GLOBAL("; break;  
         case EXTERN: std::cout << "EXTERN("; break;    
         }
+
+        std::cout << binding->id << "?";
         
         std::cout << binding->name.str() << ") : ";
         binding->type->dump();
@@ -318,6 +324,35 @@ struct Assignment : Expression {
     }
 };
 
+struct Mutation : Expression { // impure! 
+    Ptr<Reference> lhs; // replace by generic lvalue reference??
+    Ptr<Expression> rhs;
+    
+    bool is_const_expr; // 
+    
+    Mutation(Ptr<Reference> lhs, Ptr<Expression> rhs)
+        : lhs(lhs), rhs(rhs), Expression() {
+        assert(this->lhs!=nullptr);
+        assert(this->rhs!=nullptr);
+        
+        type = newPtr<TypeVar>(K1);
+        assert(unifyTypes(type, this->lhs->type));
+        assert(unifyTypes(type, this->rhs->type));
+    }
+    
+    virtual void dump(int level) {
+        ast::print_indent(level);
+        std::cout << "MUTATE" << std::endl;
+        
+        lhs->dump(level + 1);
+        rhs->dump(level + 1);
+    }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
+};
+
 struct Conditional : Expression {
     Ptr<Expression> condition, on_false, on_true;
     
@@ -364,6 +399,31 @@ struct Sequence : Expression {
         v.visit(*this);
     }
 };
+
+struct While : Expression {
+    Ptr<Expression> condition;
+    Ptr<Sequence> body;
+    
+    While(Ptr<Expression> condition, Ptr<Sequence> body)
+        : condition(condition), body(body) {
+        type = Void;//newPtr<TypeVar>(K1);
+        assert(unifyTypes(condition->type, Bool));
+        // no restrictions on the type of the body, return values are simply ignored. 
+    }
+    While() {}
+    
+    virtual void dump(int level) {
+        ast::print_indent(level);
+        std::cout << "WHILE" << std::endl;
+        
+        condition->dump(level + 1);
+        body->dump(level + 1);
+    }
+    
+    virtual void accept(ExpressionVisitor &v) {
+        v.visit(*this);
+    }
+}; 
 
 struct MatchClause : Env {
     Ptr<Expression> pattern, condition, body;

@@ -50,6 +50,10 @@ Forward declarations
 
 */
 
+// TODO: check pattern exhaustiveness
+// TODO: patterns on the lhs of assignment and definitions
+// TODO: tuples
+
 Binding *Env::find(Sym name) {
     auto it = dictionary.find(name);
     Binding *b;
@@ -173,6 +177,8 @@ Ptr<Type> typeExpression(Ptr<TypeEnv> env, Ptr<Atom> exp);
 
 void defineADT(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs);
 Ptr<Match> match(Ptr<Env> env, Ptr<List> args);
+Ptr<While> while_(Ptr<Env> env, Ptr<List> args);
+Sym processLhs(Ptr<Atom> lhs, Ptr<List> *&params_dest, Ptr<Atom> *type_exp, bool can_type_head);
 
 Ptr<Expression> topLevel(Ptr<Globals> globals, Ptr<Atom> exp) {
     Ptr<List> rest;
@@ -225,6 +231,29 @@ Ptr<Assignment> define(Ptr<Env> env, Ptr<List> body) {
     }
 }
 
+Ptr<Mutation> mutation(Ptr<Env> env, Ptr<List> body) {
+    assert(arity_is<2>(body));
+    
+    Ptr<Atom> lhs = body->at(0), rhs = body->at(1);
+
+    Ptr<List> params, *params_dest = &params;
+    Ptr<Atom> type_exp;
+
+    // cannot put type expressions
+    Sym name = processLhs(lhs, params_dest, &type_exp, false); 
+
+    Binding *binding = env->find(name);
+    assert(binding && binding->mut);
+        
+    Ptr<Expression> exp = params != nullptr 
+                ? function(env, list({params, rhs}))
+                : expression(env, rhs, binding);
+
+    return newPtr<Mutation>(
+        newPtr<Reference>(binding),
+        exp);
+}
+
 Ptr<Conditional> if_(Ptr<Env> env, Ptr<List> args);
 
 Ptr<Reference> reference(Ptr<Env> env, Ptr<Atom> a) {
@@ -273,10 +302,14 @@ Ptr<Expression> expression(Ptr<Env> env, Ptr<Atom> a, Binding *binding) {
             return sequence(env, a_rest);
         } else if(headis(a, "if", a_rest)) {
             return if_(env, a_rest);
+        } else if(headis(a, "while", a_rest)) {
+            return while_(env, a_rest);
         } else if(headis(a, "cond", a_rest)) {
             return cond(env, a_rest);
         } else if(headis(a, "match", a_rest)) {
             return match(env, a_rest);
+        } else if(headis(a, ":=", a_rest)) {
+            return mutation(env, a_rest);
         } else if(headis(a, "=", a_rest)) {
             return define(env, a_rest);
         } else {
@@ -293,6 +326,14 @@ Ptr<Conditional> if_(Ptr<Env> env, Ptr<List> args) {
         expression(env, args->at(0)), 
         expression(env, args->at(1)), 
         expression(env, args->at(2)));
+}
+
+Ptr<While> while_(Ptr<Env> env, Ptr<List> args) {
+    assert(arity_is_min<2>(args));
+    
+    return newPtr<While>(
+        expression(env, args->at(0)), 
+        sequence(env, args->tail));
 }
 
 

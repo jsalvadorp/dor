@@ -1,16 +1,16 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 
 /*
  * Dor binary module files
  * 
- * everything in the data/code section is 8-byte aligned
- * word is 8 bytes
- * 
  * UTF-8 shebang line, terminated by an endline, padded to 8-byte align-
- * ment.
+ * ment with unix newlines.
  * 
+ * current shebang is #!/usr/bin/env dor
+ *
  * bom : 8byte unsigned int
  * 
  * ~~ current version (little endian)
@@ -44,8 +44,6 @@
  * 
  * 4byte arg count
  * 4byte local count
- * 4byte max ops (empty for now)
- * 4byte ???
  * ... code
  * padding 0s (to 8byte alignment)
  * 
@@ -63,3 +61,4 @@
 
 void initCompiler();
 void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq);
+void makeBinary(std::ofstream &out); 

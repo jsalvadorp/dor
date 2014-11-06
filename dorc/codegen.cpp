@@ -1,13 +1,16 @@
-
+#include <cstdint>
 #include <cassert>
 #include <iomanip>
+#include <fstream>
 #include "analysis.hpp"
 #include "codegen.hpp"
 #include "ast.hpp"
+#include "obj.hpp"
 
 
 #include "instructions.hpp"
 
+#define DISABLE_CHECK_OPS
 
 instructions::instr instructions::iset[256];
 
@@ -138,6 +141,8 @@ struct Proc : Global {
 
 std::vector<Ptr<Global> > pool; // constant pool
 Ptr<Proc> load;
+size_t extern_count;
+size_t load_id;
 
 
 
@@ -180,7 +185,11 @@ struct Compile : ExpressionVisitor {
         Compile comp(new_proc);
         comp.is_tail = true;
         f.body->accept(comp);
+        
+        #ifndef DISABLE_CHECK_OPS
         assert(new_proc->ops == 0);
+        #endif
+
         
         // load in reverse onto the stack
         // TODO: handle vtable hidden params
@@ -321,7 +330,10 @@ struct Compile : ExpressionVisitor {
             break;
         // all other cases behave the same: their iset specifies before/after
         default:
+            #ifndef DISABLE_CHECK_OPS
             assert(surrounding->getOps() >= instructions::iset[code].before);
+            #endif
+
             surrounding->setOps(
                 surrounding->getOps()
                 - instructions::iset[code].before 
@@ -410,6 +422,35 @@ struct Compile : ExpressionVisitor {
             putValue(jump_end, 2, surrounding->code.size());
         }
     }
+
+    virtual void visit(While &e) {
+        Compile comp(surrounding);
+        comp.no_undefined = no_undefined;
+        comp.is_tail = false;
+        
+        size_t start, jump_false;
+
+        start = surrounding->code.size();
+
+        e.condition->accept(comp);
+        jump_false = emit(OPCODE(brf2), -1);
+        
+        comp.ignore_result = true;
+        e.body->accept(comp);
+
+        emit(OPCODE(bra2), start);
+
+        putValue(jump_false, 2, surrounding->code.size());
+        
+        if(!ignore_result) {
+            emit(OPCODE(ldi), 0); // load unit value
+        }
+        
+        if(is_tail) {
+            emit(OPCODE(ret));
+        }
+
+    } 
     
     virtual void visit(Sequence &e) {
         Compile comp(surrounding);
@@ -421,7 +462,7 @@ struct Compile : ExpressionVisitor {
             Ptr<Expression> step = e.steps[i];
             
             comp.is_tail = is_tail && i == e.steps.size() - 1;
-            comp.ignore_result = i < e.steps.size() - 1 && !no_undefined;
+            comp.ignore_result = ignore_result || (i < e.steps.size() - 1 && !no_undefined);
             
             assert(prev_ops == surrounding->getOps());
             step->accept(comp);
@@ -570,7 +611,140 @@ struct Compile : ExpressionVisitor {
         compileBinding(lhs->binding, true);
     }
     
-    virtual void visit(Match &e) {}
+    virtual void visit(Mutation &e) {
+        Ptr<Reference> lhs = e.lhs;
+        Ptr<Expression> rhs = e.rhs;
+        
+        Compile comp(surrounding, is_tail, ignore_result, no_undefined);
+        // comp.no_undefined = no_undefined;
+        rhs->accept(comp);
+        
+        if(!ignore_result)
+            emit(OPCODE(dup));
+        compileBinding(lhs->binding, true);
+    }
+
+    void emitCompare(Ptr<Type> ty) {
+        if(ty == Int) {
+            emit(OPCODE(ieq));
+        } else if(ty == Float) {
+            emit(OPCODE(feq));
+        } else {
+            emit(OPCODE(ieq));
+        }
+
+        // TODO: string comparison, Eq ...
+    }
+
+    struct MatchTable {
+        std::vector<size_t> jumps_end;
+
+        std::vector<size_t> jumps_false;
+        std::vector<size_t> depths_false;
+
+        size_t max_depth;
+
+        void addJumpFalse(size_t addr, size_t depth) {
+            if(jumps_false.size() == 0) max_depth = depth;
+
+            jumps_false.push_back(addr);
+            depths_false.push_back(depth);
+        }
+    };
+
+    size_t visitPattern(MatchTable &tbl, Ptr<Expression> exp, size_t depth, bool leftmost, bool outermost) { // return current field
+        if(Ptr<Literal> l = castPtr<Literal, Expression>(exp)) {
+            Compile comp(surrounding);
+            
+            comp.visit(*l);
+            emitCompare(l->type);
+            tbl.addJumpFalse(emit(OPCODE(brf2), -1), depth);
+        } else if(Ptr<Reference> r = castPtr<Reference, Expression>(exp)) {
+            if(leftmost) { // constructor
+                assert(!depth || r->binding->constructor);
+            }
+
+            /*if(r->name == "_") {
+                // ignore
+            } else */if(r->binding->scope == LOCAL) {
+                compileBinding(r->binding, true, false);
+            } else {
+                assert(r->binding->isconstexpr);
+            
+                compileBinding(r->binding, false, false);
+                emitCompare(r->type); 
+                //emit(OPCODE(brf2), -1);
+                
+                tbl.addJumpFalse(emit(OPCODE(brf2), -1), depth);
+
+            }
+            
+        } else if(Ptr<Application> a = castPtr<Application, Expression>(exp)) {
+            if(outermost) { // 1024 check
+                emit(OPCODE(ldi2), 1024);
+                emit(OPCODE(ilt));
+                // emit(OPCODE(brf2), -1);
+                tbl.addJumpFalse(emit(OPCODE(brf2), -1), depth);
+                emit(OPCODE(dup)); // copy of thw whole constructed value
+                emit(OPCODE(dup));
+                emit(OPCODE(ldf), 0); // to be consumed when the constructor tag is matched
+            }
+            
+            size_t field = visitPattern(tbl, a->left, depth, true, false) + 1;
+            
+            emit(OPCODE(dup));
+            emit(OPCODE(ldf), field);
+            
+            visitPattern(tbl, a->right, depth + 1, false, true);
+
+            if(outermost) {
+                emit(OPCODE(pop));
+            }
+
+            return field;
+        } else assert(0);
+        return 0;
+    }
+    
+    virtual void visit(Match &e) {
+        //assert(e.exp->type->nullary_constructors.size() < 1024);
+
+        // TODO automaton or decision tree pattern-matcher that verifies exhaustiveness
+        // and aids compilation
+
+        Compile comp(surrounding);
+
+        e.exp->accept(comp);
+
+        MatchTable tbl;
+        
+        for(Ptr<MatchClause> mc : e.clauses) {
+            tbl.jumps_false.clear();
+            tbl.depths_false.clear();
+            tbl.max_depth = 0;
+            emit(OPCODE(dup));
+            visitPattern(tbl, mc->pattern, 0, true, true);
+            emit(OPCODE(pop));
+            comp.is_tail = is_tail;
+            comp.ignore_result = ignore_result;
+            mc->body->accept(comp);
+            if(!is_tail) tbl.jumps_end.push_back(emit(OPCODE(bra2), -1));
+
+            for(int i = 0; i < tbl.max_depth; i++) emit(OPCODE(pop));
+
+            for(int i = 0; i < tbl.jumps_false.size(); i++) {
+                putValue(tbl.jumps_false[i], 2, surrounding->code.size() - tbl.depths_false[i]);
+            }
+        } 
+
+        emit(OPCODE(pop));
+        emit(OPCODE(fail)); 
+
+        for(int i = 0; i < tbl.jumps_end.size(); i++) {
+            putValue(tbl.jumps_end[i], 2, surrounding->code.size());
+        }
+
+    }
 };
 
 void compileConstructor(Binding *b) {
@@ -607,8 +781,9 @@ void compileConstructor(Binding *b) {
     comp.emit(OPCODE(chunk), new_proc->arity + 1);
     comp.emit(OPCODE(ret));
     
-    
+    #ifndef DISABLE_CHECK_OPS
     assert(new_proc->ops == 0);
+    #endif
 }
 
 void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
@@ -622,10 +797,12 @@ void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
     // refer to one another!
     
     int id = 0;
+    extern_count = 0;
     
     for(Binding *b : globals->externs) {
         //pool[id++] = nullptr;
         id++;
+        extern_count++;
     }
     
     
@@ -718,6 +895,86 @@ void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
 }
 
 
+
+void makeBinary(std::ofstream &out) {
+    std::string shebang = "#!/usr/bin/env dor\n";
+    
+    while(shebang.size() % 8) shebang.push_back('\n');
+    
+    // Shebang
+    out.write(shebang.c_str(), shebang.size());
+
+    uint64_t bom = 0xFFFFFFFF00000000ULL;
+    
+    // bom
+    obj::writeVal(out, bom);
+
+    size_t header_start = out.tellp();
+    
+    obj::Header header;
+    header.pool_start = header_start + obj::Header::size + extern_count * obj::ExternEntry::size;
+    header.pool_count = pool.size() - extern_count;
+    header.data_start = header.pool_start + header.pool_count * obj::PoolEntry::size;
+    header.extern_count = extern_count; 
+    header.load = load_id;
+    header.data_size = 0;
+    
+    std::vector<obj::PoolEntry> cpool(header.pool_count);
+    
+    out.seekp(header.data_start);
+    
+    for(int i = extern_count; i < pool.size(); i++) {
+        obj::PoolEntry &p = cpool[i - extern_count];
+        if(Ptr<DoubleG> d = castPtr<DoubleG, Global>(pool[i])) {
+            p.type = obj::DataFloat64;
+            p.value.f64 = d->value;
+            p.length = 8;
+        } else if(Ptr<LongG> d = castPtr<LongG, Global>(pool[i])) {
+            p.type = obj::DataInt64;
+            p.value.ui64 = d->value;
+            p.length = 8;
+        } else if(Ptr<StringG> d = castPtr<StringG, Global>(pool[i])) {
+            p.type = obj::DataChar;
+            p.length = d->value.size();
+            if(p.length > 8) { // in the data section
+                p.value.ui64 = out.tellp();
+                obj::writeString(out, d->value); 
+            } else {
+                for(int i = 0; i < p.length; i++) {
+                    p.value.c[i] = d->value[i];
+                }
+            }
+
+        } else if(Ptr<Proc> d = castPtr<Proc, Global>(pool[i])) {
+            p.type = obj::DataProc;
+            p.value.ui64 = out.tellp();
+            p.length = 8 + d->code.size();
+            
+            uint32_t arity = d->arity, locals = d->locals;
+
+            obj::writeVal(out, arity);
+            obj::writeVal(out, locals);
+            obj::writeCode(out, d->code);
+
+        } else if(pool[i] == nullptr) {
+            p.type = obj::DataNotPresent;
+        }
+    }
+
+    header.data_size = out.tellp() - (long)header.data_start;
+
+    out.seekp(header_start);
+    writeVal(out, header);
+
+    for(auto &c : cpool) {
+        writeVal(out, c);
+    }
+    
+}
+
+
+
 void initCompiler() {
     instructions::initInstructions();
 }
+

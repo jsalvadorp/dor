@@ -1,0 +1,57 @@
+data Person =
+  Person
+    name :String
+    age  :Int = 8
+
+# names of members are only allowed for single-rule ADTs.
+# they do not pollute the namespace, but are accessible under
+# the type's namespace (Person.name)
+
+juan = Person "juan" 19
+pepe = Person {name = "pepe"} # default value on age
+pedro = juan.{name = "pedro"} # "with" syntax
+pedro2 = juan.{"pedro", 34} # "with" syntax, shorthand
+
+people = juan :: pepe :: pedro :: Nil
+names = map Person.name people
+
+
+
+
+data Cmp a =
+  Cmp
+    (<) : a -> a -> Bool
+    # default definitions
+    a == b = ..
+    a > b = ..
+    a >= b = ...
+    a <= b = ...
+    ...
+
+
+implicit = 5              # an implicit Int
+implicit :String = "hi"   # an implicit String
+
+_implicit :Bool = True    # a private (unexported) implicit bool
+
+
+# implicit parameters
+
+quicksort : a => List a -> Cmp a ~> List a
+quicksort l ~c = do
+  implicit = c # an implicit (Ord a), for a above
+  match l
+    Nil =>
+      Nil
+    p :: xs => do
+      lesser  = filter (x -> x < p)    # comparison operators looked up
+      greater = filter (x -> x >= p)   # on the implicit c above
+
+      quicksort lesser ++ (p :: Nil) ++ quicksort greater
+
+implicit :Cmp Int = ...
+implicit :Cmp String = ...
+
+sl = sort (1::2::3::) (explicit (implicit : Ord Int).{>})
+
+
