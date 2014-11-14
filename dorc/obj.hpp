@@ -2,13 +2,16 @@
 
 #include <cstdint>
 #include <fstream>
+#include <vector>
 
 namespace obj {
 
 union word_t {
     uint64_t ui64;
+    int64_t i64;
     double f64;
     char c[8];
+    void *ptr;
 };
 
 struct Header {
@@ -60,13 +63,26 @@ void writeVal(std::ofstream &out, T t, bool swap_endianness = false) {
     out.write(reinterpret_cast<const char *>(&t), sizeof(T));
 }
 
-void writeCode(std::ofstream &out, std::vector<unsigned char> &code) {
+template <typename T>
+void readVal(std::ifstream &in, T &t, bool swap_endianness = false) {
+    // do something with byte order!
+
+    in.read(reinterpret_cast<char *>(&t), sizeof(T));
+}
+
+inline void readPadding(std::ifstream& in, size_t length) {
+    char c[16];
+    in.read(c, (8 - (length % 8)) % 8);
+}
+
+
+inline void writeCode(std::ofstream &out, std::vector<unsigned char> &code) {
     const char pad = 0;
     out.write((const char *)code.data(), code.size());
     for(int i = code.size(); i % 8; i++) out.write(&pad, 1);
 }
 
-void writeString(std::ofstream &out, std::string &code) {
+inline void writeString(std::ofstream &out, std::string &code) {
     const char pad = 0;
     out.write((const char *)code.data(), code.size());
     for(int i = code.size(); i % 8; i++) out.write(&pad, 1);

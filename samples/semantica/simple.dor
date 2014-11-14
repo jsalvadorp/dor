@@ -1,9 +1,38 @@
+
+# builtins are not real funcs. wrap them!
+fplus a b = a +. b
+fdiv a b = a /. b
+
+putFloat x = printFloat x
+putInt x = printInt x
+putString x = printString x
+
+putFloatLn x = do
+  printFloat x
+  printString "\n"
+
+putIntLn x = do
+  printInt x
+  printString "\n"
+
+putStringLn x = do
+  printString x
+  printString "\n"
+
+getFloat () = readFloat ()
+getInt () = readInt ()
+getString () = readString ()
+
 id x = x
 
 flip f x y = f y x
 
 (f <: g) x = f (g x)
 (g :> f) x = f (g x)
+
+infixr (<|) 105
+f <| x = f x
+
 
 fac n = 
   if (n == 0) 
@@ -48,7 +77,33 @@ lista = 1 :: 2 :: 3 :: 4 :: Nil
 lista_e = map even lista
 
 
-# zip f l r =
+average xs = foldr fplus 0.0 xs /. intToFloat (length xs)
+
+readNFloats n =
+  if (n == 0)
+    Nil
+    getFloat () :: readNFloats (n - 1)
+
+putFloats = map putFloatLn
+
+main () = do
+  printString "Dame n floats\n"
+  
+  fs = map (fplus 5.0) <| readNFloats <| getInt()
+
+  printString " me diste; \n"
+  putFloats fs
+
+  printString " promedio: "
+  putFloatLn <| average fs 
+  ()
+
+ 
+
+
+
+
+# zip2 f l r =
 #   match (l, r)
 #     (Nil, _) =>
 #       Nil
@@ -57,5 +112,6 @@ lista_e = map even lista
 #     (lx :: lxs, rx :: rxs) =>
 #       f lx rx :: zip f lxs rxs
 # 
-# cprod = zip (,)
+# cprod = zip2 (,)
+# dot =
 

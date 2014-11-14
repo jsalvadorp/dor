@@ -31,8 +31,8 @@
  * ~~ constant pool (at pool_start)
  * pool_count records of
  * type         : 4byte unsigned int
- * length       : 4byte unsigned int (in words)
- * value        : 8byte data (or offset if length > 1 word) 
+ * length       : 4byte unsigned int (in bytes, 0 if not an array/proc/string)
+ * value        : 8byte data (or offset) 
  * 
  * ~~ data (at data_start)
  * 

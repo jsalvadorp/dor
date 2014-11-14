@@ -412,7 +412,7 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
     func->type = ftype;//newPtr<TypeVar>(K1);
     
     for(Ptr<Atom> p : *params) {
-        Sym name;
+        Sym name(-1);
         Ptr<List> p_rest;
         
         if(headis(p, ":", p_rest)) {
@@ -421,8 +421,12 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
             
            // TODO handle type!
         } else {
-            assert(p->type() == SymType);
-            name = p->get_Sym();
+            if(p->type() == VoidType) {
+
+            } else {
+                assert(p->type() == SymType);
+                name = p->get_Sym();
+            }
         }
         
         Binding binding;
@@ -444,12 +448,12 @@ Ptr<Function> function(Ptr<Env> env, Ptr<List> args, Ptr<Type> ftype) {
         } else {
             assert(ret->type() != TFORALL); // NO foralls on the right
             
-            binding.type = newPtr<TypeVar>(K1);
+            binding.type = name.valid() ? newPtr<TypeVar>(K1) : Void; // void if ()
             //binding.type = newPtr<TypeVar>(Sym(name.str() + "_tv"), K1);
             ret = applyTypes(ret, binding.type);
         }
         
-        func->dictionary[name] = binding;
+        if(name.valid() && name != "_") func->dictionary[name] = binding;
         func->parameters.push_back(&func->dictionary[name]);
     }
     
@@ -1039,6 +1043,19 @@ void initGlobals(Ptr<Globals> g) {
     initBuiltin(g, Sym(">=."), intIntBool);
     initBuiltin(g, Sym("==."), intIntBool);
     initBuiltin(g, Sym("!=."), intIntBool);
+
+    initBuiltin(g, Sym("printInt"), funcType(Int, Void));
+    initBuiltin(g, Sym("printFloat"), funcType(Float, Void));
+    initBuiltin(g, Sym("printString"), funcType(String, Void));
+
+    initBuiltin(g, Sym("readInt"), funcType(Void, Int));
+    initBuiltin(g, Sym("readFloat"), funcType(Void, Float));
+    initBuiltin(g, Sym("readString"), funcType(Void, String));
+
+    initBuiltin(g, Sym("intToFloat"), funcType(Int, Float));
+    initBuiltin(g, Sym("floatToInt"), funcType(Float, Int));
+
+
 }
 
 

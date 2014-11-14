@@ -20,6 +20,10 @@ namespace instructions {
             , arg1_size(a1)
             , before(bf)
             , after(af)  {}
+        
+        unsigned int size() {
+            return 1 + arg0_size + arg1_size;
+        }
     };
     
     extern instr iset[256];
@@ -35,6 +39,7 @@ namespace instructions {
             arg1_size = ARG1, \
             before = BEFORE, \
             after = AFTER, \
+            size = 1 + ARG0 + ARG1 \
         }; \
         static constexpr const char *name = #NAME; \
     }; \
@@ -91,7 +96,7 @@ namespace instructions {
     DEFINE_INSTRUCTION(ishru,   0x3F,  0,  0,  2,  1); // right shift (0s)
     DEFINE_INSTRUCTION(ilnot,   0x40,  0,  0,  1,  1); // logical not
     
-    // TODO: handle: 2,4byte arithmetic,oveflows, sign extension, etc
+    // TODO: handle: 2,4byte arithmetic,oveflows, sign extension, uinsgneds, etc
     
     // comparison
     DEFINE_INSTRUCTION(igt,     0x50,  0,  0,  2,  1);
@@ -142,3 +147,25 @@ namespace instructions {
         getInstr<0>();
     }
 }
+
+#define DIS_INST(code, i) \
+    int inst = code[i]; \
+    int arg0s = instructions::iset[inst].arg0_size; \
+    int arg1s = instructions::iset[inst].arg1_size; \
+    \
+    uint64_t arg0 = 0, arg1 = 0; \
+    \
+    std::cout << "   " << std::setw(4) << i << " " << instructions::iset[inst].name; \
+    if(arg0s) { \
+        while(arg0s--) { \
+            arg0 |= ((unsigned int)code[++i] << (8 * arg0s)); \
+        } \
+        std::cout << " " << arg0; \
+    } \
+    if(arg1s) { \
+        while(arg1s--) { \
+            arg1 |= ((unsigned int)code[++i] << (8 * arg1s)); \
+        } \
+        std::cout << " " << arg1; \
+    } \
+    std::cout << std::endl;

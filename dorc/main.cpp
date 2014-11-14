@@ -1,3 +1,5 @@
+#include <getopt.h>
+
 #include "parser.hpp"
 #include "analysis.hpp"
 #include "tokens.hpp"
@@ -5,12 +7,42 @@
 #include "codegen.hpp"
 
 
-int main() {
-    initLexer();
+int main(int argc, char **argv) {
+    static option long_options[] = {
+        {"output", required_argument, 0, 'o'},
+        {"assembly", no_argument, 0, 'a'},
+    };
+
+    string out_filename;
+    
+    int c;
+    
+    while(1) {
+        int option_index = 0;
+
+        c = getopt_long (argc, argv, "o:a",
+                         long_options, &option_index);
+
+        if(c == -1) break;
+
+        /*switch(c) {
+        case 'o':
+            out_filename = optarg
+        case '?':
+        case 0:
+            
+        }*/
+    }
+
+    std::vector<std::string> input_filenames;
+
+    while(optind < argc) {
+        input_filenames.push_back(argv[optind++]);
+    }
+
+
+    initLexer(input_filenames[0]);
 	parser::initParser();
-    
-    
-    
 	
 	Ptr<List> tree = asList(parser::parseGroup(true));
     
@@ -48,4 +80,11 @@ int main() {
     std::cout << "Assembly output------------------------" << std::endl;
     initCompiler();
     compile(globals, unit);
+
+    closeLexer();
+    
+    std::ofstream out("a.out", std::ios::out | std::ios::binary); 
+
+    makeBinary(out);
+
 }

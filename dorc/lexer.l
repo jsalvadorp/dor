@@ -240,7 +240,8 @@ Token nextToken() {
     return t;
 }
 
-void initLexer() {
+void initLexer(std::string &filename) {
+    yyin = fopen(filename.c_str(), "r");
 	line_start = true;
 	no_indent = false;
 	no_line = false;
@@ -249,4 +250,7 @@ void initLexer() {
 	groupers.push(std::make_pair(TEOF, -1));
 }
 
+void closeLexer() {
+    fclose(yyin);    
+}
 

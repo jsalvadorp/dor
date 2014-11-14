@@ -2,10 +2,12 @@
 #include <cassert>
 #include <iomanip>
 #include <fstream>
+#include <unordered_map>
 #include "analysis.hpp"
 #include "codegen.hpp"
 #include "ast.hpp"
 #include "obj.hpp"
+#include "builtin_funcs.hpp"
 
 
 #include "instructions.hpp"
@@ -112,26 +114,7 @@ struct Proc : Global {
         std::cout << " OPS " << max_ops << std::endl;
         std::cout << " CODE " << std::endl;
         for(int i = 0; i < code.size(); i++) {
-            int inst = code[i];
-            int arg0s = instructions::iset[inst].arg0_size;
-            int arg1s = instructions::iset[inst].arg1_size;
-            
-            i64 arg0 = 0, arg1 = 0;
-            
-            std::cout << "   " << std::setw(4) << i << " " << instructions::iset[inst].name;
-            if(arg0s) {
-                while(arg0s--) {
-                    arg0 |= ((unsigned int)code[++i] << (arg0s)) & 0xFF;
-                }
-                std::cout << " " << arg0;
-            }
-            if(arg1s) {
-                while(arg1s--) {
-                    arg1 |= ((unsigned int)code[++i] << (arg1s)) & 0xFF;
-                }
-                std::cout << " " << arg1;
-            }
-            std::cout << std::endl;
+            DIS_INST(code, i); 
         }
     }
 };
@@ -143,8 +126,9 @@ std::vector<Ptr<Global> > pool; // constant pool
 Ptr<Proc> load;
 size_t extern_count;
 size_t load_id;
+size_t entry_id;
 
-
+std::unordered_map<Sym, uint32_t> builtin_func_codes;
 
 struct Compile : ExpressionVisitor {
     Ptr<Proc> surrounding;
@@ -222,7 +206,7 @@ struct Compile : ExpressionVisitor {
         
         if(store) {
             // during load_time, it is permitted to assign to consts
-            assert(binding->mut != CONST || no_undefined);
+            //assert(binding->mut != CONST || no_undefined);
             
             switch(binding->scope) {
             case GLOBAL:
@@ -558,6 +542,8 @@ struct Compile : ExpressionVisitor {
                 emit(OPCODE(fmul));
             } else if(name == "/." && args.size() == 2) {
                 emit(OPCODE(fdiv));
+            } else if(builtin_func_codes.count(name) && args.size() == 1) {
+                emit(OPCODE(sys), builtin_func_codes[name]);
             } else {
                 Binding *b = ref->binding;
                 if((b->scope == GLOBAL || b->scope == EXTERN) && b->id < pool.size()) {
@@ -787,6 +773,21 @@ void compileConstructor(Binding *b) {
 }
 
 void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
+    builtin_func_codes = {
+        {"printInt",    builtin_funcs::PRINT_INT},
+        {"printFloat", builtin_funcs::PRINT_FLOAT},
+        {"printString", builtin_funcs::PRINT_STRING},
+
+        {"readInt",     builtin_funcs::READ_INT},
+        {"readFloat",  builtin_funcs::READ_FLOAT},
+        {"readString",  builtin_funcs::READ_STRING},
+
+        {"intToFloat",  builtin_funcs::INT_TO_FLOAT},
+        {"floatToInt",  builtin_funcs::FLOAT_TO_INT},
+    };
+    
+    entry_id = load_id = -1;
+
     pool = std::vector<Ptr<Global> >(
         globals->externs.size() + globals->globals.size());
     int externs = globals->externs.size();
@@ -820,7 +821,12 @@ void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
                 assert(f->id != -1);
                 pool[f->id] = newPtr<Proc>();
                 f->accept(compg);
-                
+
+                if(b->name == "main") {
+                    Ptr<Type> vv = funcType(Void, Void);
+                    assert(unifyTypes(b->type, vv));
+                    entry_id = f->id;
+                }
             } else if(Ptr<Literal> f = castPtr<Literal, Expression>(b->value)) {
                 switch(f->value->type()) {
                 case ast::BoolType:
@@ -857,7 +863,7 @@ void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
     }
     
     load = newPtr<Proc>();
-    int load_id = pool.size();
+    load_id = pool.size();
     pool.push_back(load);
     
     load->arity = 0; //f.parameters.size(); 
@@ -876,6 +882,8 @@ void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
     for(Ptr<Expression> exp : load_seq->steps) {
         exp->accept(comp);
     }
+
+    comp.emit(OPCODE(halt));
     
     int i = 0;
     for(Ptr<Global> glo : pool) {
@@ -897,6 +905,9 @@ void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq) {
 
 
 void makeBinary(std::ofstream &out) {
+    assert(obj::Header::size == sizeof(obj::Header));
+    assert(obj::PoolEntry::size == sizeof(obj::PoolEntry));
+
     std::string shebang = "#!/usr/bin/env dor\n";
     
     while(shebang.size() % 8) shebang.push_back('\n');
@@ -917,6 +928,7 @@ void makeBinary(std::ofstream &out) {
     header.data_start = header.pool_start + header.pool_count * obj::PoolEntry::size;
     header.extern_count = extern_count; 
     header.load = load_id;
+    header.entry = entry_id;
     header.data_size = 0;
     
     std::vector<obj::PoolEntry> cpool(header.pool_count);
@@ -928,27 +940,29 @@ void makeBinary(std::ofstream &out) {
         if(Ptr<DoubleG> d = castPtr<DoubleG, Global>(pool[i])) {
             p.type = obj::DataFloat64;
             p.value.f64 = d->value;
-            p.length = 8;
+            p.length = 0;
         } else if(Ptr<LongG> d = castPtr<LongG, Global>(pool[i])) {
             p.type = obj::DataInt64;
             p.value.ui64 = d->value;
-            p.length = 8;
+            p.length = 0;
         } else if(Ptr<StringG> d = castPtr<StringG, Global>(pool[i])) {
             p.type = obj::DataChar;
             p.length = d->value.size();
-            if(p.length > 8) { // in the data section
+            //if(p.length > 8) { // in the data section
                 p.value.ui64 = out.tellp();
                 obj::writeString(out, d->value); 
-            } else {
-                for(int i = 0; i < p.length; i++) {
-                    p.value.c[i] = d->value[i];
-                }
-            }
+            //} else {
+            //    for(int i = 0; i < p.length; i++) {
+            //        p.value.c[i] = d->value[i];
+            //    }
+            //}
 
         } else if(Ptr<Proc> d = castPtr<Proc, Global>(pool[i])) {
             p.type = obj::DataProc;
             p.value.ui64 = out.tellp();
             p.length = 8 + d->code.size();
+
+            std::cout << "proc " << i << " at " << p.value.i64 << std::endl;
             
             uint32_t arity = d->arity, locals = d->locals;
 
@@ -965,6 +979,15 @@ void makeBinary(std::ofstream &out) {
 
     out.seekp(header_start);
     writeVal(out, header);
+
+    std::cout << "sz entry " << sizeof(obj::PoolEntry) << std::endl;
+
+    std::cout << "wrote header load = " << header.load << std::endl;
+    std::cout << "wrote header pool count = " << header.pool_count << std::endl;
+    std::cout << "wrote header extern count = " << header.extern_count << std::endl;
+    std::cout << "wrote header pool start = " << header.pool_start << std::endl;
+    std::cout << "wrote header data start = " << header.data_start << std::endl;
+    std::cout << "wrote header entry = " << header.entry << std::endl;
 
     for(auto &c : cpool) {
         writeVal(out, c);

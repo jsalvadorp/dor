@@ -57,7 +57,8 @@ struct Token {
     }
 };
 
-void initLexer();
+void initLexer(std::string &filename);
+void closeLexer();
 Token nextToken();
 
 
