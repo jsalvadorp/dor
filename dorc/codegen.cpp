@@ -83,10 +83,10 @@ struct StringG : Global {
 struct Proc : Global {
     unsigned int arity;
     unsigned int locals;
-    unsigned int max_ops; // unused
+    int max_ops; // unused
     unsigned int unknown;
     
-    unsigned int ops;
+    int ops;
     
     std::vector<unsigned char> code;
     
@@ -98,9 +98,10 @@ struct Proc : Global {
     
     Proc() {}
     
-    unsigned int getOps() {return ops;}
-    void setOps(unsigned int o) {
+    int getOps() {return ops;}
+    void setOps(int o) {
         ops = o;
+        //ops = std::max(0, ops);
         max_ops = std::max(max_ops, ops);
     }
     
@@ -185,7 +186,7 @@ struct Compile : ExpressionVisitor {
         }
         
         if(surrounding != nullptr) {
-            if(!ignore_result) {
+            //if(!ignore_result) {
                 assert(f.closure.size() <= 255); // for now, the limit on arguments
                 if(f.closure.size()) {
                     emit(OPCODE(clos21), id, f.closure.size());
@@ -194,7 +195,7 @@ struct Compile : ExpressionVisitor {
                     
                 if(is_tail)
                     emit(OPCODE(ret));  
-            }
+            //}
         } else assert(f.closure.size() == 0);
         
         
@@ -257,10 +258,10 @@ struct Compile : ExpressionVisitor {
         size_t arg0s = instructions::iset[code].arg0_size,
                arg1s = instructions::iset[code].arg1_size;
         
-        /*std::cout << instructions::iset[code].name;
+        /**/std::cout << instructions::iset[code].name;
         if(arg0s) std::cout << " " << arg0;
         if(arg1s) std::cout << " " << arg1;
-        std::cout << std::endl;*/
+        std::cout << std::endl;/**/
         
         size_t pos_arg0 = surrounding->code.size();
         
@@ -379,17 +380,28 @@ struct Compile : ExpressionVisitor {
         size_t jump_false, jump_end;
         
         size_t prev_ops = surrounding->getOps();
+
+        std::cout << "conditional ops before" << prev_ops << " is_tail = " << is_tail<< std::endl;
+
+        std::cout << "{" << std::endl;
+
+        e.dump(0);
+
+        std::cout << "}" << std::endl;
         
         comp.is_tail = false;
         e.condition->accept(comp);
         
         jump_false = emit(OPCODE(brf2), -1);
+        std::cout << "conditional ops after condition " << surrounding->getOps() << std::endl;
         assert(prev_ops == surrounding->getOps());
         
         comp.is_tail = is_tail;
+        size_t before_true = surrounding->getOps();
         e.on_true->accept(comp);
         
         prev_ops = surrounding->getOps();
+        std::cout << "conditional ops after on_true " << prev_ops << std::endl;
         
         if(!comp.is_tail) {
             jump_end = emit(OPCODE(bra2), -1);
@@ -398,8 +410,10 @@ struct Compile : ExpressionVisitor {
         putValue(jump_false, 2, surrounding->code.size());
         
         comp.is_tail = is_tail;
+        surrounding->setOps(before_true);
         e.on_false->accept(comp);
         
+        std::cout << "conditional ops after on_false " << surrounding->getOps() << std::endl;
         assert(prev_ops == surrounding->getOps());
         
         if(!comp.is_tail) {
@@ -426,9 +440,9 @@ struct Compile : ExpressionVisitor {
 
         putValue(jump_false, 2, surrounding->code.size());
         
-        if(!ignore_result) {
+        //if(!ignore_result) {
             emit(OPCODE(ldi), 0); // load unit value
-        }
+        //}
         
         if(is_tail) {
             emit(OPCODE(ret));
@@ -453,16 +467,24 @@ struct Compile : ExpressionVisitor {
             assert(surrounding->getOps() >= prev_ops);
             
             if(!comp.is_tail) {
-                while(surrounding->getOps() > prev_ops)
-                    emit(OPCODE(pop));
+                //while
+                if(i < e.steps.size() - 1) { // if not the last instruction
+                    // pop value
+                    if(surrounding->getOps() > prev_ops)
+                        emit(OPCODE(pop));
+                    while(surrounding->getOps() > prev_ops) 
+                        surrounding->setOps(surrounding->getOps() - 1);
+                }
             } else {
                 // already placed a ret
-                assert(surrounding->getOps() == prev_ops);
+                // assert(surrounding->getOps() == prev_ops);
             }
         }
     }
     
     virtual void visit(Application &e) {
+        // TODO: tail call elimination on is_tail
+
         Expression *leftmost = &e;
         std::vector<Ptr<Expression> > args;
         
@@ -474,20 +496,52 @@ struct Compile : ExpressionVisitor {
         // args holds the argument in reverse order (the order they must
         // be pushed onto the stack, rightmost to leftmost)
         
+        Compile comp(surrounding);
+        comp.no_undefined = no_undefined;
+        comp.is_tail = false;
+        
         if(auto ref = dynamic_cast<Reference *>(leftmost)) {
             Sym name = ref->binding->name;
             
             // short-circuit evaluation
-            if(name == Sym("&&")) 
-                assert(!"Short-circuit not yet implemented");
-            else if(name == Sym("||"))
-                assert(!"Short-circuit not yet implemented");
+            // right now, code generation is _inefficient_, unnecessary duplication of ldi 0 / ldi 1 !!
+            if(name == Sym("&&")) { 
+                int prev_ops = surrounding->getOps();
+                args[1]->accept(comp);
+                size_t jump_true = emit(OPCODE(brt2), -1);
+                emit(OPCODE(ldi), 0);
+                size_t jump_end = emit(OPCODE(bra2), -1);
+                putValue(jump_true, 2, surrounding->code.size());
+                surrounding->setOps(prev_ops);
+                args[0]->accept(comp);
+                putValue(jump_end, 2, surrounding->code.size()); 
+        
+        
+                if(is_tail) {
+                    emit(OPCODE(ret));
+                }
+
+                return;
+            } else if(name == Sym("||")) { 
+                int prev_ops = surrounding->getOps();
+                args[1]->accept(comp);
+                size_t jump_false = emit(OPCODE(brf2), -1);
+                emit(OPCODE(ldi), 1);
+                size_t jump_end = emit(OPCODE(bra2), -1);
+                putValue(jump_false, 2, surrounding->code.size());
+                surrounding->setOps(prev_ops);
+                args[0]->accept(comp);
+                putValue(jump_end, 2, surrounding->code.size());
+        
+        
+                if(is_tail) {
+                    emit(OPCODE(ret));
+                }
+
+                return;
+            }
             
         }
-        
-        Compile comp(surrounding);
-        comp.no_undefined = no_undefined;
-        comp.is_tail = false;
         
         for(Ptr<Expression> arg : args) {
             arg->accept(comp);
@@ -542,17 +596,17 @@ struct Compile : ExpressionVisitor {
                 emit(OPCODE(fmul));
             } else if(name == "/." && args.size() == 2) {
                 emit(OPCODE(fdiv));
-            } else if(builtin_func_codes.count(name) && args.size() == 1) {
+            } /* else if(builtin_func_codes.count(name) && args.size() == 1) {
                 emit(OPCODE(sys), builtin_func_codes[name]);
-            } else {
+            } */ else {
                 Binding *b = ref->binding;
                 if((b->scope == GLOBAL || b->scope == EXTERN) && b->id < pool.size()) {
                     if(Ptr<Proc> proc = castPtr<Proc, Global>(pool[b->id])) {
                         if(args.size() >= proc->arity) {
                             emit(OPCODE(call2), b->id);
                             
-                            for(int i = args.size(); i < proc->arity; i++) {
-                                emit(OPCODE(app), proc->arity - i);
+                            for(int i = proc->arity; i < args.size(); i++) {
+                                emit(OPCODE(app), args.size() - i);
                             }
                         } else if(args.size() < proc->arity) {
                             emit(OPCODE(clos21), b->id, args.size());
@@ -592,7 +646,7 @@ struct Compile : ExpressionVisitor {
         // comp.no_undefined = no_undefined;
         rhs->accept(comp);
         
-        if(!ignore_result)
+        //if(!ignore_result)
             emit(OPCODE(dup));
         compileBinding(lhs->binding, true);
     }
@@ -605,7 +659,7 @@ struct Compile : ExpressionVisitor {
         // comp.no_undefined = no_undefined;
         rhs->accept(comp);
         
-        if(!ignore_result)
+        // if(!ignore_result)
             emit(OPCODE(dup));
         compileBinding(lhs->binding, true);
     }
@@ -632,13 +686,14 @@ struct Compile : ExpressionVisitor {
 
         void addJumpFalse(size_t addr, size_t depth) {
             if(jumps_false.size() == 0) max_depth = depth;
+            else max_depth = std::max(max_depth, depth);
 
             jumps_false.push_back(addr);
             depths_false.push_back(depth);
         }
     };
 
-    size_t visitPattern(MatchTable &tbl, Ptr<Expression> exp, size_t depth, bool leftmost, bool outermost) { // return current field
+    size_t visitPattern(MatchTable &tbl, Ptr<Expression> exp, size_t depth, bool leftmost, bool outermost, bool whole_pattern) { // return current field
         if(Ptr<Literal> l = castPtr<Literal, Expression>(exp)) {
             Compile comp(surrounding);
             
@@ -667,23 +722,31 @@ struct Compile : ExpressionVisitor {
             
         } else if(Ptr<Application> a = castPtr<Application, Expression>(exp)) {
             if(outermost) { // 1024 check
+                //emit(OPCODE(ldi), depth);
+                //emit(OPCODE(dup)); // copy of thw whole constructed value
+                
+                if(!whole_pattern) {
+                    emit(OPCODE(dup));
+                    depth++;
+                }
+
                 emit(OPCODE(ldi2), 1024);
                 emit(OPCODE(ilt));
                 // emit(OPCODE(brf2), -1);
                 tbl.addJumpFalse(emit(OPCODE(brf2), -1), depth);
-                emit(OPCODE(dup)); // copy of thw whole constructed value
+
                 emit(OPCODE(dup));
                 emit(OPCODE(ldf), 0); // to be consumed when the constructor tag is matched
             }
             
-            size_t field = visitPattern(tbl, a->left, depth, true, false) + 1;
+            size_t field = visitPattern(tbl, a->left, depth, true, false, false) + 1;
             
             emit(OPCODE(dup));
             emit(OPCODE(ldf), field);
             
-            visitPattern(tbl, a->right, depth + 1, false, true);
+            visitPattern(tbl, a->right, depth, false, true, false);
 
-            if(outermost) {
+            if(outermost && !whole_pattern) {
                 emit(OPCODE(pop));
             }
 
@@ -691,12 +754,20 @@ struct Compile : ExpressionVisitor {
         } else assert(0);
         return 0;
     }
+
+    size_t visitApp(Ptr<Expression> exp) {
+        if(Ptr<Application> application = castPtr<Application, Expression>(exp)) {
+            
+        }
+    }
     
     virtual void visit(Match &e) {
         //assert(e.exp->type->nullary_constructors.size() < 1024);
 
         // TODO automaton or decision tree pattern-matcher that verifies exhaustiveness
         // and aids compilation
+        
+        int prev_ops = surrounding->getOps();
 
         Compile comp(surrounding);
 
@@ -709,7 +780,7 @@ struct Compile : ExpressionVisitor {
             tbl.depths_false.clear();
             tbl.max_depth = 0;
             emit(OPCODE(dup));
-            visitPattern(tbl, mc->pattern, 0, true, true);
+            visitPattern(tbl, mc->pattern, 0, true, true, true);
             emit(OPCODE(pop));
             comp.is_tail = is_tail;
             comp.ignore_result = ignore_result;
@@ -729,7 +800,8 @@ struct Compile : ExpressionVisitor {
         for(int i = 0; i < tbl.jumps_end.size(); i++) {
             putValue(tbl.jumps_end[i], 2, surrounding->code.size());
         }
-
+        
+        surrounding->setOps(prev_ops + 1); // trust that all the code generated will only push one word
     }
 };
 

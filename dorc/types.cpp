@@ -148,7 +148,7 @@ bool unifyTypes(Ptr<Type> &x, Ptr<Type> &y) {
 
 #endif
 
-Ptr<Type> Int, String, Char, Bool, Void, Float, FuncArrow;
+Ptr<Type> Int, String, Char, Bool, Void, Float, FuncArrow, Array;
 
 
 #define DEFINE_BUILTIN_TYPE(id, name, kind) \
@@ -160,6 +160,7 @@ void initTypes(Ptr<Globals> g) {
     DEFINE_BUILTIN_TYPE(Bool, "Bool", K1);
     DEFINE_BUILTIN_TYPE(Void, "Void", K1);
     DEFINE_BUILTIN_TYPE(Float, "Float", K1);
+    DEFINE_BUILTIN_TYPE(Array, "Array", K2);
     DEFINE_BUILTIN_TYPE(FuncArrow, "->", K3);
     /*Int         = newPtr<Type>("Int", K1);
     Char        = newPtr<Type>("Char", K1);

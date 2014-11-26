@@ -231,27 +231,47 @@ Ptr<Assignment> define(Ptr<Env> env, Ptr<List> body) {
     }
 }
 
-Ptr<Mutation> mutation(Ptr<Env> env, Ptr<List> body) {
+Ptr<Expression> mutation(Ptr<Env> env, Ptr<List> body) {
     assert(arity_is<2>(body));
     
     Ptr<Atom> lhs = body->at(0), rhs = body->at(1);
 
-    Ptr<List> params, *params_dest = &params;
-    Ptr<Atom> type_exp;
+    // Ptr<List> params, *params_dest = &params;
+    // Ptr<Atom> type_exp;
 
-    // cannot put type expressions
-    Sym name = processLhs(lhs, params_dest, &type_exp, false); 
+    // Sym name = processLhs(lhs, params_dest, &type_exp, false); 
+    Ptr<List> rest;
 
-    Binding *binding = env->find(name);
-    assert(binding && binding->mut);
+    if(headis(lhs, "@", rest)) { // array element assignment!
+        Ptr<Atom> array = rest->at(0), index = rest->at(1);
+        Ptr<Expression> array_exp = expression(env, array),
+                        index_exp = expression(env, index);
+        Ptr<Reference> array_set = reference(env, atom(Sym("@ set")));
+        Ptr<Expression> exp = expression(env, rhs);
         
-    Ptr<Expression> exp = params != nullptr 
-                ? function(env, list({params, rhs}))
-                : expression(env, rhs, binding);
-
-    return newPtr<Mutation>(
-        newPtr<Reference>(binding),
-        exp);
+        return newPtr<Application>(
+            newPtr<Application>(
+                newPtr<Application>(
+                    array_set,
+                    array_exp),
+                index_exp),
+            exp);
+                
+    } else {
+        assert(lhs->type() == SymType);
+        Sym name = lhs->get_Sym();
+        Binding *binding = env->find(name);
+        assert(binding && binding->mut);
+            
+        Ptr<Expression> exp = expression(env, rhs, binding);
+        /* Ptr<Expression> exp = params != nullptr 
+                    ? function(env, list({params, rhs}))
+                    : expression(env, rhs, binding); */
+        
+        return newPtr<Mutation>(
+            newPtr<Reference>(binding),
+            exp);
+    }
 }
 
 Ptr<Conditional> if_(Ptr<Env> env, Ptr<List> args);
@@ -814,8 +834,11 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
     
     // redefinitions not allowed!
     auto it = env->dictionary.find(name);
-    assert(it == env->dictionary.end() 
-        || (it->second.scope != EXTERN && !it->second.defined));
+    if(!(it == env->dictionary.end() 
+        || (it->second.scope != EXTERN && !it->second.defined))) {
+        std::cerr << "Redefinition of symbol " << name.str() << std::endl;
+        assert(0);
+    };
     
     bool had_a_type = false; // had a type before defining
     
@@ -842,12 +865,13 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
     if(!had_a_type) // else give it a typevar so recursion can aid us in finding a type
         new_binding->type = newPtr<TypeVar>(K1);// newPtr<TypeVar>(Sym(name.str() + "_tv"), K1);
         
-        
     new_binding->defined = true; 
     
     Ptr<Expression> exp;    
     
+    std::cout << "binding " << name.str() << " hd a type? " << had_a_type <<  std::endl; 
     if(had_a_type) { // let's match the type of exp with user-type
+        std::cout << "io?binding " << name.str() << " hd a type? " << had_a_type <<  std::endl; 
         if(new_binding->type->type() == TFORALL) {
             // we must unify with ONLY the right part of the quantified
             // type. The body of the function/rhs is considered to be
@@ -869,17 +893,20 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
                 shorten(exp->type);
             }
         } else { // assuming no more quantifiers inside new_binding->type!!
+            std::cout << "?binding " << name.str() << " hd a type? " << had_a_type <<  std::endl; 
             exp = params != nullptr 
-                ? function(env, list({params, rhs}))
-                : expression(env, rhs, new_binding);  
+                ? function(env, list({params, rhs}), new_binding->type)
+                : expression(env, rhs);  
+            std::cout << "unify ?binding " << name.str() << " hd a type? " << had_a_type <<  std::endl; 
             assert(unifyTypes(new_binding->type, exp->type));
             shorten(exp->type);
         }
     } else { // no user-given type. capture freevars!
         exp = params != nullptr 
-                ? function(env, list({params, rhs}))
+                ? function(env, list({params, rhs}), new_binding->type)
                 : expression(env, rhs, new_binding);  
-       
+         
+        std::cout << "?binding " << name.str() << " new type "; exp->type->dump(); std::cout <<  std::endl; 
         // necessary for some recursions
         assert(unifyTypes(new_binding->type, exp->type));
                           
@@ -1013,9 +1040,11 @@ void initBuiltin(Ptr<Globals> g, Sym name, Ptr<Type> type) {
 }
 
 void initGlobals(Ptr<Globals> g) {
+    Ptr<Type> boolBool;
     Ptr<Type> 
         intIntInt = funcType(Int, funcType(Int, Int)),
         floatFloatFloat = funcType(Float, funcType(Float, Float)),
+        boolBoolBool = funcType(Bool, boolBool = funcType(Bool, Bool)),
         intIntBool = funcType(Int, funcType(Int, Bool));
         
     initBuiltin(g, Sym("+"), intIntInt);
@@ -1043,6 +1072,12 @@ void initGlobals(Ptr<Globals> g) {
     initBuiltin(g, Sym(">=."), intIntBool);
     initBuiltin(g, Sym("==."), intIntBool);
     initBuiltin(g, Sym("!=."), intIntBool);
+    
+    initBuiltin(g, Sym("&&"), boolBoolBool);
+    initBuiltin(g, Sym("||"), boolBoolBool);
+    initBuiltin(g, Sym("not"), boolBool);
+    
+    initBuiltin(g, Sym("error"), funcType(String, Void));
 
     initBuiltin(g, Sym("printInt"), funcType(Int, Void));
     initBuiltin(g, Sym("printFloat"), funcType(Float, Void));
@@ -1054,6 +1089,28 @@ void initGlobals(Ptr<Globals> g) {
 
     initBuiltin(g, Sym("intToFloat"), funcType(Int, Float));
     initBuiltin(g, Sym("floatToInt"), funcType(Float, Int));
+
+    // arrays 
+    // Array
+    Ptr<TypeForAll> array_con_type = newPtr<TypeForAll>();
+    Ptr<TypeVar> tmp_var = newPtr<TypeVar>(K1);
+    array_con_type->init(funcType(Int, funcType(tmp_var, newPtr<TypeApp>(Array, tmp_var))));
+    initBuiltin(g, Sym("Array"), array_con_type);
+    
+    Ptr<TypeForAll> array_get = newPtr<TypeForAll>();
+    tmp_var = newPtr<TypeVar>(K1);
+    array_get->init(funcType(newPtr<TypeApp>(Array, tmp_var), funcType(Int, tmp_var)));
+    initBuiltin(g, Sym("@"), array_get);
+    
+    Ptr<TypeForAll> array_set = newPtr<TypeForAll>();
+    tmp_var = newPtr<TypeVar>(K1);
+    array_set->init(funcType(newPtr<TypeApp>(Array, tmp_var), funcType(Int, funcType(tmp_var, tmp_var))));
+    initBuiltin(g, Sym("@ set"), array_set); // dirty hack to store an otherwise unusable symbol!
+    
+    Ptr<TypeForAll> array_size = newPtr<TypeForAll>();
+    tmp_var = newPtr<TypeVar>(K1);
+    array_size->init(funcType(newPtr<TypeApp>(Array, tmp_var), Int));
+    initBuiltin(g, Sym("arrayLength"), array_size);
 
 
 }

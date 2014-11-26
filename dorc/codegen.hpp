@@ -62,3 +62,24 @@
 void initCompiler();
 void compile(Ptr<Globals> globals, Ptr<Sequence> load_seq);
 void makeBinary(std::ofstream &out); 
+
+/*
+
+dot resolution
+
+a.b
+
+looks for a:
+- as a value in the current scope, and then b as a member of the namespace of the type of a
+- as a type in the current scope, and then b as a member of that type's namespace
+- as a module in the current scope (?)
+(package system)
+- as as a.di/a.dor in the current dir
+- as directory...
+
+binary interface files 
+serialize type structure
+serialize name structure (a, b.c.d, b.c.e, d), leafs link to type
+default arguments and implicits
+
+*/

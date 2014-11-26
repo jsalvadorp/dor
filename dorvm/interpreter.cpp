@@ -27,17 +27,24 @@ instructions::instr instructions::iset[256];
 #define REGS_SIZE 5
 
 #define CALL(p, retaddr) \
-    stack[regs + 0].ptr = (void *)proc; \
-    stack[regs + 1].ui64 = retaddr; \
-    stack[regs + 2].ui64 = next; \
-    stack[regs + 3].ui64 = fp; \
-    stack[regs + 4].ui64 = sp + CLOS_PROC(p)->arity; \
-    next = regs; \
-    proc = CLOS_PROC(p); \
-    pc = 0; \
-    fp = sp; \
-    regs = sp - CLOS_PROC(p)->locals - REGS_SIZE; \
-    sp = regs;
+    if(CLOS_PROC(p)->native_impl) { \
+        obj::word_t *args = stack + sp; \
+        sp += CLOS_PROC(p)->arity; \
+        PUSH(CLOS_PROC(p)->native_impl(args)); \
+        pc = retaddr; \
+    } else { \
+        stack[regs + 0].ptr  = (void *) proc; \
+        stack[regs + 1].ui64 = retaddr; \
+        stack[regs + 2].ui64 = next; \
+        stack[regs + 3].ui64 = fp; \
+        stack[regs + 4].ui64 = sp + CLOS_PROC(p)->arity; \
+        next = regs; \
+        proc = CLOS_PROC(p); \
+        pc = 0; \
+        fp = sp; \
+        regs = sp - CLOS_PROC(p)->locals - REGS_SIZE; \
+        sp = regs; \
+    }
 
 #define RESTORE \
     regs = next; \
@@ -69,55 +76,7 @@ inline obj::word_t wordPtr(void *p) {
     return w;
 }
 
-typedef obj::word_t NativeFunc (obj::word_t *args);
-
-obj::word_t readInt(obj::word_t *args) {
-    obj::word_t res;
-    std::cin >> res.i64;
-    return res;
-}
-
-obj::word_t readFloat(obj::word_t *args) {
-    obj::word_t res;
-    std::cin >> res.f64;
-    return res;
-}
-
-obj::word_t readString(obj::word_t *args) {
-    std::string s;
-    std::cin >> s;
-    
-    obj::word_t res;
-    res.ptr = makeString(s.data(), s.size());
-    return res;
-}
-
-obj::word_t printInt(obj::word_t *args) {
-    std::cout << args[0].i64;
-    return wordPtr(0);
-}
-
-obj::word_t printFloat(obj::word_t *args) {
-    std::cout << args[0].f64;
-    return wordPtr(0);
-}
-
-obj::word_t printString(obj::word_t *args) {
-    std::cout << ((const char *)args[0].ptr + 8);
-    return wordPtr(0);
-}
-
-obj::word_t intToFloat(obj::word_t *args) {
-    obj::word_t res;
-    res.f64 = (double) args[0].i64;
-    return res;
-}
-
-obj::word_t floatToInt(obj::word_t *args) {
-    obj::word_t res;
-    res.i64 = (int64_t) args[0].f64;
-    return res;
-}
+#include "builtins.hpp"
 
 NativeFunc *builtin_func_impls[] = {
     printInt,
@@ -157,21 +116,22 @@ void run(obj::word_t *stack, uint64_t stack_size, Proc *start) {
         int arg1s = instructions::iset[inst].arg1_size;
         
         uint64_t arg0 = 0, arg1 = 0;
-
-        //std::cout << "   #" << std::setw(4) << (pc-1) << " " << instructions::iset[inst].name;
+        
+        // sign extension!!
+        // std::cerr << "   #" << std::setw(4) << (pc-1) << " " << instructions::iset[inst].name;
         
         if(arg0s) {
             while(arg0s--) {
-                arg0 |= ((unsigned int)proc->code[pc++] << (8 * arg0s));
-            }//std::cout << " " << arg0;
+                arg0 |= ((uint64_t)proc->code[pc++] << (8 * arg0s));
+            } //std::cerr << " " << arg0;
         }
         if(arg1s) {
             while(arg1s--) {
-                arg1 |= ((unsigned int)proc->code[pc++] << (8 * arg1s));
-            }//std::cout << " " << arg1;
+                arg1 |= ((uint64_t)proc->code[pc++] << (8 * arg1s));
+            } //std::cerr << " " << arg1;
         }
-        //std::cout << " [" << TOP.i64 << "__" << TOP.f64 << "]";
-        //std::cout << std::endl;
+        //std::cerr << " [" << TOP.i64 << "__" << TOP.f64 << "] sp = " << sp;
+        //std::cerr << std::endl;
         
         switch(inst) {
         CASE_OPCODE(halt):
@@ -194,7 +154,7 @@ void run(obj::word_t *stack, uint64_t stack_size, Proc *start) {
         CASE_OPCODE(ldi2):
         CASE_OPCODE(ldi4):
         CASE_OPCODE(ldi8):
-            tmp.ui64 = arg0;
+            tmp.i64 = arg0;
             PUSH(tmp);
             break;
         CASE_OPCODE(lda):
@@ -323,7 +283,9 @@ void run(obj::word_t *stack, uint64_t stack_size, Proc *start) {
             break;
         CASE_OPCODE(fail): {
             std::cerr << "Pattern match failed" << std::endl;
+            assert(0);
             break;
+
         }
 
         }

@@ -1,0 +1,225 @@
+# unfinished experiment: slices of arrays
+
+End = 0x7FFFFFFFFFFFFFFF
+
+data Slice t = _Slice (Array t) Int Int
+
+# nueva slice (nuevo array)
+Slice new_size value = _Slice (Array new_size value) 0 new_size
+SliceArray array = _Slice array 0 (size array)
+sliceLength slice = match slice
+  _Slice _ start end => end - start
+
+#slice de otra slice
+infixl (@@) 10
+slice @@ index = match slice
+  _Slice array start end => do
+    real_index = if (index < 0) (end + index) index
+    assert (real_index >= 0 && real_index < end - start) "Splice index out of bounds"
+
+
+infixl (@@@) 10
+slice @@@ range = match (slice, range)
+  (_Slice array start end, (new_start, new_end)) => do
+    real_end =   
+
+
+
+
+Matrix m n v = Array m (Array n v)
+
+rows = arrayLength
+columns m =
+  if (rows m == 0)
+    0
+    arrayLength m@0
+
+matrixMult a b = do
+  assert (columns a == rows b) "Matrix dimension mismatch"
+  n = columns a
+  ra = rows a
+  cb = columns b
+
+  res = Matrix ra cb 0.0
+
+  var i = 0
+  while (i < ra)
+    var j = 0
+    while (j < cb)
+      var k = 0
+      while (k < n)
+        printString "i"
+        printIntLn i
+        printString "j"
+        printIntLn j
+        printString "k"
+        printIntLn k
+        printFloatLn res@i@j
+        res@i@j := res@i@j +. (a@i@k *. b@k@j)
+        k := k + 1
+      j := j + 1
+    i := i + 1
+
+  res
+
+
+
+printArray arr = do
+  var i = 0
+  n = arrayLength arr
+  while (i < n)
+    printInt arr@i
+    printString " "
+    i := i + 1
+  printStringLn ""
+
+
+_quickSortAux : Array Int -> Int -> Int -> Void
+_quickSortAux arr left right = do
+  printString "sort de "
+  printInt left
+  printString " a "
+  printInt right
+  printString " : "
+  printArray arr
+  var pivot = arr@((left + right) / 2)
+  printString " pivote es  "
+  printIntLn pivot
+
+
+  ()
+  var i = left
+  var j = right
+  ()
+  while (i <= j)
+    while(arr@i < pivot)
+      i := i + 1
+    while(arr@j > pivot)
+      j := j - 1
+
+    cond
+      (i <= j) => do
+        tmp = arr@i
+        arr@i := arr@j
+        arr@j := tmp
+        i := i + 1
+        j := j - 1
+        ()
+      else => ()
+
+    if (left < j)
+      _quickSortAux arr left j
+      ()
+    if (i < right)
+      _quickSortAux arr i right
+      ()
+  # ()
+
+quickSort array = _quickSortAux array 0 (arrayLength array - 1)
+
+
+  # 
+
+
+#   printStringLn "Multiplica matrices-------------------"
+#   printString   " input    (filas): "
+#   m := readInt ()
+#   printString   " input (columnas): "
+#   n := readInt ()
+# 
+#   mat = Matrix m n 0.0
+#   i := 0
+#   while (i < m)
+#     j := 0
+#     while (j < n) 
+#       mat@i@j := readFloat()
+#       j := j + 1
+#     i := i + 1
+# 
+#   printString   " input2   (filas): "
+#   m := readInt ()
+#   printString   " input2(columnas): "
+#   n := readInt ()
+# 
+#   mat2 = Matrix m n 0.0
+#   i := 0
+#   while (i < m)
+#     printString "reading"
+#     printIntLn i
+#     j := 0
+#     while (j < n) 
+#       printString "readingj"
+#       printIntLn j
+#       mat2@i@j := readFloat()
+#       j := j + 1
+#     i := i + 1
+#   
+#   mat3 = matrixMult mat mat2
+#   m := rows mat3
+#   n := columns mat3
+#   
+#   printStringLn " output: "
+# 
+#   i := 0
+#   while (i < m)
+#     j := 0
+#     while (j < n) 
+#       printFloat mat2@i@j
+#       printString " "
+#       j := j + 1
+#     printString "\n"
+#     i := i + 1
+#   a = 5
+#   if(a < 6) 8 9
+# 
+# 
+   
+
+  
+
+  ()
+  # 
+
+  # 
+  # fs = times readFloat <| readInt()
+
+  # printString " me diste; \n"
+  # map printFloatLn fs
+
+  # printString " promedio: "
+  # printFloatLn <| average fs 
+  # 
+  # printStringLn "making tree "
+  # 
+  # lt = ((5, "montse"); (2, "bob"); (7, "jack"); (6, "gino"); (8, "salvador"); Nil)
+  # tree = makeBST lt
+
+  # printStringLn (find tree 7 ?? "No se encuentra")
+  # printStringLn (find tree 5 ?? "No se encuentra")
+  # printStringLn (find tree 17 ?? "No se encuentra")
+
+  # l1 = 1; 2; 3; Nil
+  # l2 = 1_000_000; 20; 30; Nil
+
+  # printStringLn "suma ints"
+  # zip2 (+) l1 l2 |> map printIntLn
+
+  # printStringLn "operacion booleana" 
+  # mayor_igual_30 = x -> x >= 30
+  # zip2 (||) (map mayor_igual_30 l1) (map mayor_igual_30 l2) |> map printBoolLn 
+
+  # printStringLn "Fin"
+
+  # numeros = Array 7 99
+
+  # i := 0
+  # while (i < arrayLength numeros)
+  #   numeros@i := 10 + i
+  #   i := i + 1
+
+  # printIntLn <| findSeq numeros 13 ?? -99
+
+  # 
+
+  # ()
+

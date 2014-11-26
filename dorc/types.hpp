@@ -313,4 +313,4 @@ struct TypeEnv {
 
 bool isMoreConstrained(Ptr<Type> a, Ptr<Type> b);
 
-extern Ptr<Type> Int, String, Char, Bool, Void, Float, FuncArrow;
+extern Ptr<Type> Int, String, Char, Bool, Void, Float, Array, FuncArrow;

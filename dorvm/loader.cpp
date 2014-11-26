@@ -46,6 +46,8 @@ Pool loadBinary(std::ifstream &in) {
     //pool = std::vector<obj::word_t>(header.extern_count + header.pool_count);
     size_t global_count = header.extern_count + header.pool_count;
     p.pool = new obj::word_t[global_count];
+    p.size = global_count;
+    //std::cout << "externs " << header.extern_count << " interns " << header.pool_count << std::endl;
     memset(p.pool, 0, global_count * sizeof(obj::word_t));
 
     in.seekg(header.data_start);
@@ -87,11 +89,14 @@ Pool loadBinary(std::ifstream &in) {
 #define TO8(x) (((x) + 7) & ~(7))
 
 void *makeString(const char *buf, size_t length) {
-    size_t size = 8 + TO8(length);
+    size_t size = 16 + TO8(length);
     char *news = new char[size];
+    *((uint64_t *) (news + size - 16)) = 0; // zero-terminate
     *((uint64_t *) (news + size - 8)) = 0; // zero-terminate
     *((uint64_t *) news) = length; // write length in bytes
     memcpy(news + 8, buf, length);
+
+    assert(news);
     return (void *) news;
 }
 

@@ -1,0 +1,284 @@
+
+# IO BASICO : por default solo hay printInt, printFloat, printString
+
+printFloatLn x = do
+  printFloat x
+  printString "\n"
+
+printIntLn x = do
+  printInt x
+  printString "\n"
+
+printStringLn x = do
+  printString x
+  printString "\n"
+
+# printBool no esta definida por default
+printBool x = 
+  printString (if x "True" "False")
+
+printBoolLn x = do
+  printBool x
+  printString "\n"
+
+assert condition message =
+  if condition
+     ()
+     error message
+
+# FUNCIONES BASICAS
+id x = x
+
+flip f x y = f y x
+
+# composicion funcional izquierda y derecha
+(f <: g) x = f (g x)
+(g :> f) x = f (g x)
+
+# aplicacion funcional de baja prioridad 
+infixr (<|) 105
+f <| x = f x
+
+infixl (|>) 105
+x |> f = f x
+
+# TIPOS PREDEFINIDOS
+
+# tupla simple. en el futuro el lenguaje las tendra builtin
+data Tuple a b = (a, b)
+
+# tipo opcional: valores "null"
+data Option a = None | Some a
+
+# si el valor es nulo, en su lugar retornar otro
+infixl (??) 90
+a ?? b = match a
+  None    => b
+  Some x  => x
+
+# listas encadenadas
+infixr (;) 95
+data List a = Nil | a; (List a)
+
+# FUNCIONES EN LISTAS
+
+listLength l =
+  match l
+    Nil   => 0
+    _; xs => 1 + listLength xs
+
+
+# reducciones izquierda y derecha
+foldr f v l =
+  match l
+    Nil   => v
+    x; xs => f x (foldr f v xs)
+
+foldl f v l =
+  match l
+    Nil   => v
+    x; xs => foldl f (f v x) xs
+
+# mappear sobre cada elemento
+map f = foldr ((;) <: f) Nil
+
+reverse = foldl (flip (;)) Nil
+
+empty l = match l
+  Nil => True
+  _   => False
+
+# como cerrar un zipper: applica f sobre elementos correspondientes 
+zip2 f l r =
+  match (l, r)
+    (Nil, _) =>
+      Nil
+    (_, Nil) =>
+      Nil
+    (lx; lxs, rx; rxs) =>
+      f lx rx; zip2 f lxs rxs
+
+# para una lista de floats, el promedio:
+average xs = foldr (+.) 0.0 xs /. intToFloat (listLength xs)
+
+# llama una funcion void n veces, recoge los resultados en una lista
+times proc n =
+  if (n == 0)
+    Nil
+    proc(); times proc (n - 1)
+
+# ARBOL BINARIO DE BUSQUEDA CON LLAVES ENTERAS
+data BST k v = Vacio | Nodo k v (BST k v) (BST k v)
+
+# operacion no destructiva! crea un arbol nuevo
+insert a k v = match a
+  Vacio => Nodo k v Vacio Vacio
+  Nodo k1 v1 l r =>
+    cond
+      k > k1 => Nodo k1 v1 l (insert r k v)
+      k < k1 => Nodo k1 v1 (insert l k v) r
+      else   => Nodo k1 v l r
+
+find a k = match a
+  Vacio => None
+  Nodo k1 v1 l r =>
+    cond
+      k > k1 => find r k
+      k < k1 => find l k
+      else   => Some v1
+
+makeBST l = match l
+  Nil          => Vacio
+  (k, v); xs => insert (makeBST xs) k v 
+
+# OTRAS
+fac n = 
+  if (n == 0) 
+    1
+    n * fac (n - 1)
+
+facCiclo n = do
+  var res = 1
+  
+  while (n > 0)
+    res := res * n
+    n   := n - 1
+
+  res
+
+fib n =
+  cond
+    n == 0 => 0
+    n == 1 => 1
+    else   => fib (n - 1) + fib (n - 2)
+
+fibCiclo n = do
+  var a = 0
+  var b = 1
+  var i = 0
+
+  while (i < n)
+    var tmp = b
+    b := a + b
+    a := tmp
+    i := i + 1
+
+  a
+
+# type Mat2 ti = Array (Array Float)
+# Matrices (arreglos de arreglos)
+
+findSeq array value = do
+  var i = 0
+  var position = -1
+
+  while (position < 0 && i < arrayLength array)
+    position := if (array@i == value) i -1
+    i := i + 1
+
+  if(position >= 0)
+    Some position
+  # else
+    None
+
+main () = do
+  var n = 0
+  var m = 0
+
+  var i = 0
+  var j = 0
+  var arr = Array 0 0
+  
+  # printStringLn "Sort a un arreglo entero--------------"
+  # printString   " input (longitud del arreglo): "
+  # n := readInt ()
+  # printString   " input  (valores del arreglo): "
+  # i := 0
+  # arr := Array n 0
+  # while (i < n)
+  #   printIntLn i
+  #   arr@i := readInt()
+  #   i := i + 1
+  # 
+  #   
+  # printString "sorting " 
+  # quickSort arr
+  # printString   "output     (arreglo ordenado): "
+  # i := 0
+  # while (i < n)
+  #   printInt arr@i
+  #   printString " "
+  #   i := i + 1
+  # printStringLn " "
+  printStringLn "Factorial Recursivo------------------"
+  printString   " input: "
+  n := readInt ()
+  printString   "output: "
+  printIntLn (fac n)
+
+  printStringLn "Factorial Iterativo------------------"
+  printString   " input: "
+  n := readInt ()
+  printString   "output: "
+  printIntLn (facCiclo n)
+
+  printStringLn "Fionacci  Recursivo------------------"
+  printString   " input: "
+  n := readInt ()
+  printString   "output: "
+  printIntLn (fib n)
+
+  printStringLn "Fibonacci Iterativo------------------"
+  printString   " input: "
+  n := readInt ()
+  printString   "output: "
+  printIntLn (fibCiclo n)
+
+  printStringLn "Find secuencial en un arreglo entero---"
+  printString   " input (longitud del arreglo): "
+  n := readInt ()
+  printString   " input  (valores del arreglo): "
+  i := 0
+  arr := Array n 0
+  while (i < n)
+    arr@i := readInt()
+    i := i + 1
+  
+  printString   " input      (valor a buscar): "
+  n := readInt ()
+  printString   "output (posicion en arreglo): "
+  match (findSeq arr n)
+    None   => printStringLn "No se encuentra"
+    Some x => printIntLn    x
+  
+  printStringLn "Promedio de una lista de floats-------"
+  printString   " input (longitud del arreglo): "
+  n := readInt ()
+  printString   " input  (valores del arreglo): "
+  fs = times readFloat n
+
+  printString " output: "
+  printFloatLn <| average fs 
+  
+  printStringLn "Arbol binario de busqueda------------"
+  
+  lt = ((5, "montse"); (2, "bob"); (7, "jack"); (6, "gino"); (8, "salvador"); Nil)
+  tree = makeBST lt
+  
+  printStringLn "buscando valores 7, 5, 17: "
+  printStringLn (find tree 7 ?? "No se encuentra")
+  printStringLn (find tree 5 ?? "No se encuentra")
+  printStringLn (find tree 17 ?? "No se encuentra")
+
+  l1 = 1; 2; 3; Nil
+  l2 = 1_000_000; 20; 30; Nil
+
+  printStringLn "Suma dos listas----------------------"
+  zip2 (+) l1 l2 |> reverse |> map printIntLn
+
+  printStringLn "OR de dos listas---------------------" 
+  mayor_igual_30 = x -> x >= 30
+  zip2 (||) (map mayor_igual_30 l1) (map mayor_igual_30 l2) |> reverse |> map printBoolLn 
+
+  ()
+

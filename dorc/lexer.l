@@ -71,14 +71,15 @@ delim       {opc}|[\{\}\[\]\(\)\n\t\v \\,;\$\"\']
 \"([^\"]|\\.)*\"                        {return TSTRING;}
 \$(.|\\.)                              		 	{return TCHAR;}
 [a-zA-Z_][a-zA-Z0-9_]*                          {return TID;}
-[0-9][0-9_]*({ffrac}|{fexp}|{ffrac}{fexp})      {return TFLOAT;}
-[0-9][0-9_]*                                    {return TDINT;}
-0x[0-9a-fA-F][0-9a-fA-F_]*                      {return TXINT;}
-[0-9]+r[0-9A-Za-z][0-9A-Za-z_]*                 {return TRINT;} 
+\-?[0-9][0-9_]*({ffrac}|{fexp}|{ffrac}{fexp})      {return TFLOAT;}
+\-?[0-9][0-9_]*                                    {return TDINT;}
+\-?0x[0-9a-fA-F][0-9a-fA-F_]*                      {return TXINT;}
+\-?[0-9]+r[0-9A-Za-z][0-9A-Za-z_]*                 {return TRINT;} 
     /*reemplazar la anterior por muchas reglas, una para cada
     base para asegurar que sea correcto el numero*/
 {opc}+                                  {return TOP;}
 \`[a-zA-Z_][a-zA-Z0-9_]*                {return TOP;}
+\;						                {return TOP;}
 \,						                {return TOP;}
 <<EOF>>                                 {return TEOF;}
 \\                                      {return TBACKSLASH;}
@@ -215,6 +216,7 @@ Token nextToken() {
 				}
 				
                 if(new_ind != indentation.top()) {
+                    std::cerr << "line no " << yylineno << std::endl;
 					assert(!(
 						"Decrease of indentation to invalid level"));
                 }

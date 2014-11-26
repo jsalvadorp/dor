@@ -121,7 +121,7 @@ namespace instructions {
     DEFINE_INSTRUCTION(call2,   0x70,  2,  0,  -1, 1);
     //DEFINE_INSTRUCTION(clos2,   0x71,  2,  0,   0, 1);
     DEFINE_INSTRUCTION(clos21,  0x72,  2,  1,  -1, 1);
-    DEFINE_INSTRUCTION(app,     0x73,  1,  0,  -1, -1);
+    DEFINE_INSTRUCTION(app,     0x73,  1,  0,   2, 1);
     DEFINE_INSTRUCTION(ret,     0x74,  0,  0,   1, 0);
     DEFINE_INSTRUCTION(retv,    0x75,  0,  0,   0, 0); // not used by dor
     

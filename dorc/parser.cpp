@@ -39,19 +39,19 @@ std::string parseString(std::string &lexeme) {
 
 i64 parseDecInt(std::string &lexeme) {
     lexeme.erase(std::remove(lexeme.begin(), lexeme.end(), '_'), lexeme.end());
-    return std::stol(lexeme, nullptr, 10);
+    return std::stoll(lexeme, nullptr, 10);
 }
 
 i64 parseHexInt(std::string &lexeme) {
     lexeme.erase(std::remove(lexeme.begin(), lexeme.end(), '_'), lexeme.end());
-    return std::stol(lexeme, NULL, 16);
+    return std::stoll(lexeme, NULL, 16);
 }
 
 i64 parseRadixInt(std::string &lexeme) {
     lexeme.erase(std::remove(lexeme.begin(), lexeme.end(), '_'), lexeme.end());
     std::size_t pos;
-    long radix = stol(lexeme, &pos, 10);
-    return strtol(lexeme.c_str() + pos + 1 /* skip r */, NULL, radix);
+    long long radix = stoll(lexeme, &pos, 10);
+    return strtoll(lexeme.c_str() + pos + 1 /* skip r */, NULL, radix);
 }
 
 double parseFloat(std::string &lexeme) {
@@ -136,9 +136,9 @@ void initInfixOps() {
         {"==",      {70, Left}},
         {"!=",      {70, Left}},
         
-        {"&&",      {80, Left}},
+        {"&&",      {80, Right}},
         
-        {"||",      {90, Left}},
+        {"||",      {90, Right}},
         
         {"<:",      {100, Neutral}}, // leeft righttt??
         {":>",      {100, Neutral}},

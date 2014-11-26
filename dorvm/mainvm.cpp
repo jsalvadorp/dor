@@ -47,6 +47,8 @@ int main(int argc, char **argv) {
 
     Proc *load = CLOS_PROC((obj::word_t *)(module.pool[module.load].ptr)),
          *entry = module.entry >= 0 ? (Proc *) CLOS_PROC((obj::word_t *)(module.pool[module.entry].ptr)) : nullptr;
+    
+    initBuiltins(module.pool);
 
     run(stack, stack_size, load);
     

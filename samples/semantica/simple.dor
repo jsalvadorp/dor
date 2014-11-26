@@ -1,27 +1,22 @@
 
-# builtins are not real funcs. wrap them!
-fplus a b = a +. b
-fdiv a b = a /. b
-
-putFloat x = printFloat x
-putInt x = printInt x
-putString x = printString x
-
-putFloatLn x = do
+printFloatLn x = do
   printFloat x
   printString "\n"
 
-putIntLn x = do
+printIntLn x = do
   printInt x
   printString "\n"
 
-putStringLn x = do
+printStringLn x = do
   printString x
   printString "\n"
 
-getFloat () = readFloat ()
-getInt () = readInt ()
-getString () = readString ()
+printBool x = 
+  printString (if x "True" "False")
+
+printBoolLn x = do
+  printBool x
+  printString "\n"
 
 id x = x
 
@@ -32,6 +27,9 @@ flip f x y = f y x
 
 infixr (<|) 105
 f <| x = f x
+
+infixl (|>) 105
+x |> f = f x
 
 
 fac n = 
@@ -44,24 +42,32 @@ fib n =
     n == 0 => 1
     n == 1 => 1
     else   => fib (n - 1) + fib (n - 2)
-    
-infixr (::) 95
-data List a = Nil | a :: (List a)
+
 data Option a = None | Some a
+
+infixl (??) 90
+
+a ?? b = match a
+  None    => b
+  Some x  => x
+
+
+infixr (;) 95
+data List a = Nil | a; (List a)
 
 foldr f v l =
   match l
     Nil     => v
-    x :: xs => f x (foldr f v xs)
+    x; xs => f x (foldr f v xs)
 
 foldl f v l =
   match l
     Nil     => v
-    x :: xs => foldl f (f v x) xs
+    x; xs => foldl f (f v x) xs
 
-map f = foldr ((::) <: f) Nil
+map f = foldr ((;) <: f) Nil
 
-reverse = foldl (flip (::)) Nil
+reverse = foldl (flip (;)) Nil
 
 empty l = match l
   Nil => True
@@ -70,48 +76,107 @@ empty l = match l
 length l =
   match l
     Nil     => 0
-    _ :: xs => 1 + length xs
+    _; xs => 1 + length xs
 
-even x = x % 2 == 0
-lista = 1 :: 2 :: 3 :: 4 :: Nil
-lista_e = map even lista
-
-
-average xs = foldr fplus 0.0 xs /. intToFloat (length xs)
+average xs = foldr (+.) 0.0 xs /. intToFloat (length xs)
 
 readNFloats n =
   if (n == 0)
     Nil
-    getFloat () :: readNFloats (n - 1)
+    readFloat (); readNFloats (n - 1)
 
-putFloats = map putFloatLn
+printFloats = map printFloatLn
+
+
+
+data BST k v = Vacio | Nodo k v (BST k v) (BST k v)
+
+insert a k v = match a
+  Vacio => Nodo k v Vacio Vacio
+  Nodo k1 v1 l r =>
+    cond
+      k > k1 => Nodo k1 v1 l (insert r k v)
+      k < k1 => Nodo k1 v1 (insert l k v) r
+      else   => Nodo k1 v l r
+
+data Tuple a b = (a, b)
+
+makeBST l = match l
+  Nil          => Vacio
+  (k, v); xs => insert (makeBST xs) k v 
+
+find a k = match a
+  Vacio => None
+  Nodo k1 v1 l r =>
+    cond
+      k > k1 => find r k
+      k < k1 => find l k
+      else   => Some v1
+
+zip2 f l r =
+  match (l, r)
+    (Nil, _) =>
+      Nil
+    (_, Nil) =>
+      Nil
+    (lx; lxs, rx; rxs) =>
+      f lx rx; zip2 f lxs rxs
+
+and = (&&)
+
+getTrue () = do
+  printStringLn "get true"
+  True
+
+getFalse () = do
+  printStringLn "get false"
+  False
 
 main () = do
   printString "Dame n floats\n"
   
-  fs = map (fplus 5.0) <| readNFloats <| getInt()
+  fs = readNFloats <| readInt()
 
   printString " me diste; \n"
-  putFloats fs
+  printFloats fs
 
   printString " promedio: "
-  putFloatLn <| average fs 
+  printFloatLn <| average fs 
+  
+  printStringLn "making tree "
+  
+  lt = ((5, "montse"); (2, "bob"); (7, "jack"); (6, "gino"); (8, "salvador"); Nil)
+  tree = makeBST lt
+
+  printStringLn (find tree 7 ?? "No se encuentra")
+  printStringLn (find tree 5 ?? "No se encuentra")
+  printStringLn (find tree 17 ?? "No se encuentra")
+
+  l1 = 1; 2; 3; Nil
+  l2 = 1_000_000; 20; 30; Nil
+
+  printStringLn "suma ints"
+  zip2 (+) l1 l2 |> map printIntLn
+
+  printStringLn "operacion booleana" 
+  mayor_igual_30 = x -> x >= 30
+  zip2 (||) (map mayor_igual_30 l1) (map mayor_igual_30 l2) |> map printBoolLn 
+
+  if (not (getTrue () && getTrue () && getTrue () && getTrue ()))
+    printStringLn "It is true!"
+    printStringLn "It is false!"
+
+  printStringLn "Fin"
+
+  numeros = Array 5 99
+
+  var i = 0
+
+  while (i < size numeros)
+    numeros@i := 10 + i
+    i := i + 1
+
+  printIntLn numeros@3
+
   ()
-
- 
-
-
-
-
-# zip2 f l r =
-#   match (l, r)
-#     (Nil, _) =>
-#       Nil
-#     (_, Nil) =>
-#       Nil
-#     (lx :: lxs, rx :: rxs) =>
-#       f lx rx :: zip f lxs rxs
-# 
-# cprod = zip2 (,)
-# dot =
 
