@@ -134,16 +134,21 @@ obj::word_t arraySet(obj::word_t *args) {
     int64_t index = args[1].i64;
     assert(index >= 0 && index < size);
 
-    //std::cerr << "arrset sz " << size << " i " << index << std::endl;
+    //std::cerr << std::endl << "arrset sz " << size << " i " << index << std::endl;
     
     array[1 + index] = args[2];
-    //std::cerr << "uccess rrset sz " << size << " i " << index << std::endl;
     
     return args[2];
 }
 
 obj::word_t arraySize(obj::word_t *args) {
     return ((obj::word_t *) args[0].ptr)[0];
+}
+
+obj::word_t printPtr(obj::word_t *args) {
+    //std::cout << args[0].ptr;
+    printf("%p", args[0].ptr);
+    return wordPtr(0);
 }
 
 void initBuiltins(obj::word_t *pool) {
@@ -195,6 +200,7 @@ void initBuiltins(obj::word_t *pool) {
     pool[i++].ptr = (void *) makeClosure(new Proc(arrayGet, 2), nullptr, 0);
     pool[i++].ptr = (void *) makeClosure(new Proc(arraySet, 3), nullptr, 0);
     pool[i++].ptr = (void *) makeClosure(new Proc(arraySize, 1), nullptr, 0);
+    pool[i++].ptr = (void *) makeClosure(new Proc(printPtr, 1), nullptr, 0);
 
 
     

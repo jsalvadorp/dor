@@ -909,14 +909,23 @@ Ptr<Assignment> defineValue(Ptr<Env> env, Ptr<Atom> lhs, Ptr<Atom> rhs, bool var
         std::cout << "?binding " << name.str() << " new type "; exp->type->dump(); std::cout <<  std::endl; 
         // necessary for some recursions
         assert(unifyTypes(new_binding->type, exp->type));
-                          
-        Ptr<TypeForAll> q = newPtr<TypeForAll>();
-        q->init(exp->type);
+        
+        // ALERT: the following conditional is a HACK.
+        // must decide whether to support parametric types on locals!!
+        // higher rank and so.
 
-        if(!q->bound_vars.empty()) { // any free variables captured??
-            new_binding->type = q; 
+        if(new_binding->scope != LOCAL) {
+            Ptr<TypeForAll> q = newPtr<TypeForAll>();
+            q->init(exp->type);
+
+            if(!q->bound_vars.empty()) { // any free variables captured??
+                new_binding->type = q; 
+            } else {
+                new_binding->type = exp->type; // unnecessary
+            }
         } else {
-            new_binding->type = exp->type; // unnecessary
+            //assert(unifyTypes(new_binding->type, exp->type));  
+            new_binding->type = exp->type;
         }
     }
     
@@ -1046,7 +1055,8 @@ void initGlobals(Ptr<Globals> g) {
         floatFloatFloat = funcType(Float, funcType(Float, Float)),
         boolBoolBool = funcType(Bool, boolBool = funcType(Bool, Bool)),
         intIntBool = funcType(Int, funcType(Int, Bool));
-        
+    Ptr<TypeVar> tmp_var;
+
     initBuiltin(g, Sym("+"), intIntInt);
     initBuiltin(g, Sym("-"), intIntInt);
     initBuiltin(g, Sym("*"), intIntInt);
@@ -1076,8 +1086,13 @@ void initGlobals(Ptr<Globals> g) {
     initBuiltin(g, Sym("&&"), boolBoolBool);
     initBuiltin(g, Sym("||"), boolBoolBool);
     initBuiltin(g, Sym("not"), boolBool);
+   
     
-    initBuiltin(g, Sym("error"), funcType(String, Void));
+    Ptr<TypeForAll> error_type = newPtr<TypeForAll>();
+    tmp_var = newPtr<TypeVar>(K1);
+    error_type->init(funcType(String, tmp_var));
+
+    initBuiltin(g, Sym("error"), error_type);
 
     initBuiltin(g, Sym("printInt"), funcType(Int, Void));
     initBuiltin(g, Sym("printFloat"), funcType(Float, Void));
@@ -1093,7 +1108,7 @@ void initGlobals(Ptr<Globals> g) {
     // arrays 
     // Array
     Ptr<TypeForAll> array_con_type = newPtr<TypeForAll>();
-    Ptr<TypeVar> tmp_var = newPtr<TypeVar>(K1);
+    tmp_var = newPtr<TypeVar>(K1);
     array_con_type->init(funcType(Int, funcType(tmp_var, newPtr<TypeApp>(Array, tmp_var))));
     initBuiltin(g, Sym("Array"), array_con_type);
     
@@ -1111,6 +1126,12 @@ void initGlobals(Ptr<Globals> g) {
     tmp_var = newPtr<TypeVar>(K1);
     array_size->init(funcType(newPtr<TypeApp>(Array, tmp_var), Int));
     initBuiltin(g, Sym("arrayLength"), array_size);
+
+    
+    Ptr<TypeForAll> printPtr_type = newPtr<TypeForAll>();
+    tmp_var = newPtr<TypeVar>(K1);
+    printPtr_type->init(funcType(tmp_var, Void));
+    initBuiltin(g, Sym("printPtr"), printPtr_type);
 
 
 }

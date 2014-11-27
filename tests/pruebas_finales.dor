@@ -62,6 +62,21 @@ data List a = Nil | a; (List a)
 
 # FUNCIONES EN LISTAS
 
+empty l =
+  match l
+    Nil => True
+    _   => False
+
+head l =
+  match l
+    Nil   => error "Tried to extract head from empty list"
+    x; _  => x
+
+tail l =
+  match l
+    Nil   => error "Tried to extract tail from empty list"
+    _; xs => xs
+
 listLength l =
   match l
     Nil   => 0
@@ -82,12 +97,21 @@ foldl f v l =
 # mappear sobre cada elemento
 map f = foldr ((;) <: f) Nil
 
+# ejecutar una accion sobre cada elemento en orden
+# (no es funcional, no regresa datos
+
+forEach : a => (a -> Void) -> List a -> Void
+forEach action list = do
+  var it = list
+  
+  while (not (empty it))
+    action (head it)
+    it := tail it
+
+  ()
+
+
 reverse = foldl (flip (;)) Nil
-
-empty l = match l
-  Nil => True
-  _   => False
-
 # como cerrar un zipper: applica f sobre elementos correspondientes 
 zip2 f l r =
   match (l, r)
@@ -131,7 +155,7 @@ makeBST l = match l
   Nil          => Vacio
   (k, v); xs => insert (makeBST xs) k v 
 
-# OTRAS
+# MATES
 fac n = 
   if (n == 0) 
     1
@@ -165,8 +189,33 @@ fibCiclo n = do
 
   a
 
-# type Mat2 ti = Array (Array Float)
-# Matrices (arreglos de arreglos)
+# exponenciacion entera
+
+x ** n =
+  cond
+    n < 0   => if (x == 1) 1 0
+    n == 0  => 1
+    n == 1  => x
+    else    =>
+      if (n % 2 == 0)
+        # even
+        (x * x) ** (n / 2)
+        # odd
+        x *((x * x) ** ((n - 1) / 2))
+
+# Matrix pow(Matrix m, int exp) {
+# 	if(!exp) return identity(m.size());
+# 	if(exp == 1) return m;
+# 	Matrix result = identity(m.size());
+# 	while(exp) {
+# 		if(exp & 1) result = multiply(result, m);
+# 		m = multiply(m, m);
+# 		exp >>= 1;
+# 	}
+# 	return result;
+# }
+
+# ARREGLOS
 
 findSeq array value = do
   var i = 0
@@ -181,6 +230,150 @@ findSeq array value = do
   # else
     None
 
+# operaciones destructivas (in-place), no funcionales
+swap arr i j = do
+  tmp    = arr@i
+  arr@i := arr@j
+  arr@j := tmp
+  ()
+
+# http://en.wikipedia.org/wiki/Quicksort
+
+# partition : Array Int -> Int -> Int -> Int
+_partition array left right = do
+  pivot_idx = (left + right) / 2
+  pivot = array@pivot_idx
+  swap array pivot_idx right
+  var store_idx = left
+  var i = left
+  while (i < right)
+    cond 
+      array@i < pivot => do
+        swap array i store_idx
+        store_idx := store_idx + 1
+        ()
+      else => ()
+    i := i + 1
+  swap array store_idx right
+  store_idx
+
+_quickSort array i k = do
+  cond
+    i < k => do
+      p = _partition array i k
+      _quickSort array i (p - 1)
+      _quickSort array (p + 1) k
+    else => ()
+
+quickSort array = _quickSort array 0 (arrayLength array - 1) 
+
+# MATRICES
+
+shallowCopy array = do
+  len = arrayLength array
+  if (len == 0)
+    array # don't copy an empty array!
+    do # else
+      new_array = Array (arrayLength array) array@0
+      
+      var i = 0
+      while (i < len)
+        new_array@i := array@i
+        i := i + 1
+
+      new_array
+
+Matrix m n v = do
+  inner = (Array n v)
+  var mat = Array m inner
+
+  var i = 0
+  while (i < m)
+    mat@i := shallowCopy inner
+    i := i + 1
+
+  mat
+
+rows = arrayLength
+columns m =
+  if (rows m == 0)
+    0
+    arrayLength m@0
+
+printMat mat = do
+  m = rows mat
+  n = columns mat
+  var i = 0
+  var j = 0
+  while (i < m)
+    j := 0
+    while (j < n) 
+      printFloat mat@i@j
+      printString " "
+      j := j + 1
+    printString "\n"
+    i := i + 1
+
+matrixMult a b = do
+  assert (columns a == rows b) "Matrix dimension mismatch"
+  n = columns a
+  ra = rows a
+  cb = columns b
+
+  res = Matrix ra cb 0.0
+
+  var i = 0
+  while (i < ra)
+    var j = 0
+    while (j < cb)
+      var k = 0
+      while (k < n)
+        res@i@j := res@i@j +. (a@i@k *. b@k@j)
+        k := k + 1
+      j := j + 1
+    i := i + 1
+
+  res
+
+
+# quicksort(A, i, k):
+#   if i < k:
+#     p := partition(A, i, k)
+#     quicksort(A, i, p - 1)
+#     quicksort(A, p + 1, k)
+
+# partition(array, left, right)
+#      pivotIndex := choosePivot(array, left, right)
+#      pivotValue := array[pivotIndex]
+#      swap array[pivotIndex] and array[right]
+#      storeIndex := left
+#      for i from left to right - 1
+#          if array[i] < pivotValue
+#              swap array[i] and array[storeIndex]
+#              storeIndex := storeIndex + 1
+#      swap array[storeIndex] and array[right]  // Move pivot to its final place
+#      return storeIndex
+
+# TRUCOS DE TIPOS
+
+# un contenedor heterogeneo de datos imprimibles!
+# notese que el tipo a no sale en la parte izquierda
+# (NO es un parametro del tipo)
+data Printable = a => Printable a (a -> Void)
+
+PS string = Printable string printString
+PI int = Printable int printInt
+PB bool = Printable bool printBool
+PF float = Printable float printFloat
+
+print thing = match thing
+  Printable value printer => printer value
+
+printLn thing = do
+  print thing
+  printString "\n"
+
+
 main () = do
   var n = 0
   var m = 0
@@ -188,28 +381,10 @@ main () = do
   var i = 0
   var j = 0
   var arr = Array 0 0
+
   
-  # printStringLn "Sort a un arreglo entero--------------"
-  # printString   " input (longitud del arreglo): "
-  # n := readInt ()
-  # printString   " input  (valores del arreglo): "
-  # i := 0
-  # arr := Array n 0
-  # while (i < n)
-  #   printIntLn i
-  #   arr@i := readInt()
-  #   i := i + 1
-  # 
-  #   
-  # printString "sorting " 
-  # quickSort arr
-  # printString   "output     (arreglo ordenado): "
-  # i := 0
-  # while (i < n)
-  #   printInt arr@i
-  #   printString " "
-  #   i := i + 1
-  # printStringLn " "
+
+  
   printStringLn "Factorial Recursivo------------------"
   printString   " input: "
   n := readInt ()
@@ -233,8 +408,18 @@ main () = do
   n := readInt ()
   printString   "output: "
   printIntLn (fibCiclo n)
+  
+  var x = 0
+  
+  printStringLn "Exponenciacion entera----------------"
+  printString   " input      (base): "
+  x := readInt ()
+  printString   " input (exponente): "
+  n := readInt ()
+  printString   "           output : "
+  printIntLn (x ** n)
 
-  printStringLn "Find secuencial en un arreglo entero---"
+  printStringLn "Find secuencial y sort de enteros----"
   printString   " input (longitud del arreglo): "
   n := readInt ()
   printString   " input  (valores del arreglo): "
@@ -250,7 +435,20 @@ main () = do
   match (findSeq arr n)
     None   => printStringLn "No se encuentra"
     Some x => printIntLn    x
+
+  quickSort arr
+  printString   "output     (arreglo ordenado): "
+  i := 0
+  while (i < arrayLength arr)
+    printInt arr@i
+    printString " "
+    i := i + 1
+  printStringLn " "
+
+    
+
   
+
   printStringLn "Promedio de una lista de floats-------"
   printString   " input (longitud del arreglo): "
   n := readInt ()
@@ -259,6 +457,42 @@ main () = do
 
   printString " output: "
   printFloatLn <| average fs 
+
+  printStringLn "Multiplica matrices-------------------"
+  printString   " input    (filas): "
+  m := readInt ()
+  printString   " input (columnas): "
+  n := readInt ()
+
+  mat = Matrix m n 0.0
+  i := 0
+  while (i < m)
+    j := 0
+    while (j < n) 
+      mat@i@j := readFloat()
+      j := j + 1
+    i := i + 1
+
+  printString   " input2   (filas): "
+  m := readInt ()
+  printString   " input2(columnas): "
+  n := readInt ()
+
+  mat2 = Matrix m n 0.0
+  i := 0
+  while (i < m)
+    j := 0
+    while (j < n) 
+      mat2@i@j := readFloat()
+      j := j + 1
+    i := i + 1
+
+  printStringLn "-----"
+  printMat mat
+  printStringLn " X "
+  printMat mat2
+  printStringLn " = "
+  printMat <| matrixMult mat mat2
   
   printStringLn "Arbol binario de busqueda------------"
   
@@ -279,6 +513,10 @@ main () = do
   printStringLn "OR de dos listas---------------------" 
   mayor_igual_30 = x -> x >= 30
   zip2 (||) (map mayor_igual_30 l1) (map mayor_igual_30 l2) |> reverse |> map printBoolLn 
+
+
+  printStringLn "Impresion de lista heterogenea-------" 
+  forEach print <| PS "Hola tengo "; PI 89; PS " anios "; Nil
 
   ()
 
