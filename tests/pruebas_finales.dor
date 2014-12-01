@@ -156,6 +156,9 @@ makeBST l = match l
   (k, v); xs => insert (makeBST xs) k v 
 
 # MATES
+ineg x = 0 - x
+fneg x = 0.0 -. x
+
 fac n = 
   if (n == 0) 
     1
@@ -203,17 +206,7 @@ x ** n =
         # odd
         x *((x * x) ** ((n - 1) / 2))
 
-# Matrix pow(Matrix m, int exp) {
-# 	if(!exp) return identity(m.size());
-# 	if(exp == 1) return m;
-# 	Matrix result = identity(m.size());
-# 	while(exp) {
-# 		if(exp & 1) result = multiply(result, m);
-# 		m = multiply(m, m);
-# 		exp >>= 1;
-# 	}
-# 	return result;
-# }
+
 
 # ARREGLOS
 
@@ -335,25 +328,6 @@ matrixMult a b = do
 
   res
 
-
-# quicksort(A, i, k):
-#   if i < k:
-#     p := partition(A, i, k)
-#     quicksort(A, i, p - 1)
-#     quicksort(A, p + 1, k)
-
-# partition(array, left, right)
-#      pivotIndex := choosePivot(array, left, right)
-#      pivotValue := array[pivotIndex]
-#      swap array[pivotIndex] and array[right]
-#      storeIndex := left
-#      for i from left to right - 1
-#          if array[i] < pivotValue
-#              swap array[i] and array[storeIndex]
-#              storeIndex := storeIndex + 1
-#      swap array[storeIndex] and array[right]  // Move pivot to its final place
-#      return storeIndex
-
 # TRUCOS DE TIPOS
 
 # un contenedor heterogeneo de datos imprimibles!
@@ -381,8 +355,6 @@ main () = do
   var i = 0
   var j = 0
   var arr = Array 0 0
-
-  
 
   
   printStringLn "Factorial Recursivo------------------"

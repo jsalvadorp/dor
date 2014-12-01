@@ -1047,7 +1047,7 @@ void makeBinary(std::ofstream &out) {
         }
     }
 
-    header.data_size = out.tellp() - (long)header.data_start;
+    header.data_size = (long long)out.tellp() - (long long)header.data_start;
 
     out.seekp(header_start);
     writeVal(out, header);
